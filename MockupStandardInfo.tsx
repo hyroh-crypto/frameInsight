@@ -831,7 +831,7 @@ export const MockupStandardInfo = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {filteredEmployees.map((emp: any) => (
-                            <tr key={emp.id} className="hover:bg-slate-50">
+                            <tr key={String(emp.id)} className="hover:bg-slate-50">
                               <td className="px-6 py-3 font-medium text-slate-700">
                                   {emp.name} 
                                   <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${emp.type === '정규직' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>{emp.type}</span>

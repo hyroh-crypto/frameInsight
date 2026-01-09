@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { LayoutDashboard, FileText, PaintBucket, Code2, CheckCircle2, Circle, Menu, Layers, List, Check, AlertTriangle, MessageSquare, ChevronLeft, ChevronRight, ThumbsUp, LogOut, Download, Loader2, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, FileText, PaintBucket, Code2, CheckCircle2, Circle, Menu, Layers, List, Check, AlertTriangle, MessageSquare, ChevronLeft, ChevronRight, ThumbsUp, LogOut, Download, Loader2, ShieldCheck, Palette, Lock } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Phase } from './types';
 import { permissionsData, screensData, inquiriesData, featuresData } from './data';
@@ -13,6 +13,7 @@ import { MockupReport } from './MockupReport';
 import { MockupLogin } from './MockupLogin';
 import { MockupProposalReview } from './MockupProposalReview';
 import { MockupProfile } from './MockupProfile';
+import { StyleGuide } from './StyleGuide';
 
 interface NavItemProps { icon: React.ReactNode; label: string; isOpen: boolean; active?: boolean; done?: boolean; }
 const NavItem = ({ icon, label, isOpen, active = false, done = false }: NavItemProps) => (
@@ -29,7 +30,7 @@ const TabButton = ({ active, onClick, icon, label, hasAlert = false }: { active:
 );
 
 export const App = () => {
-  const [currentTab, setCurrentTab] = useState<'features' | 'screens' | 'permissions' | 'review' | 'mockups' | 'confirmation'>('mockups');
+  const [currentTab, setCurrentTab] = useState<'features' | 'screens' | 'permissions' | 'review' | 'mockups' | 'confirmation' | 'styles'>('mockups');
   const [selectedRole, setSelectedRole] = useState<string>('ALL');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(1);
@@ -96,11 +97,12 @@ export const App = () => {
         <main className="flex-1 overflow-y-auto p-8"><div className="max-w-[1600px] mx-auto space-y-6">
             <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm"><h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">프로젝트 로드맵</h3><div className="flex items-center justify-between relative"><div className="absolute left-0 top-1/2 w-full h-1 bg-gray-100 -z-10"></div>{phases.map((phase) => (<div key={phase.id} className="flex flex-col items-center bg-white px-4 z-0"><div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 mb-2 transition-colors ${phase.status === 'completed' ? 'border-green-500 bg-green-50 text-green-600' : phase.status === 'in-progress' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-200 bg-gray-50 text-gray-300'}`}>{phase.status === 'completed' ? <Check size={16} /> : phase.status === 'in-progress' ? <Circle size={16} fill="currentColor" /> : <Circle size={16} />}</div><span className={`text-xs font-bold ${phase.status === 'completed' ? 'text-green-600' : phase.status === 'in-progress' ? 'text-orange-600' : 'text-gray-500'}`}>{phase.title}</span></div>))}</div></div>
             <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-              <TabButton active={currentTab === 'review'} onClick={() => setCurrentTab('review')} icon={<CheckCircle2 size={16} />} label="기술 검토" />
               <TabButton active={currentTab === 'features'} onClick={() => setCurrentTab('features')} icon={<List size={16} />} label="기능 정의" />
-              <TabButton active={currentTab === 'mockups'} onClick={() => setCurrentTab('mockups')} icon={<PaintBucket size={16} />} label="UI 목업 (S)" hasAlert />
-              <TabButton active={currentTab === 'confirmation'} onClick={() => setCurrentTab('confirmation')} icon={<ThumbsUp size={16} />} label="설계 확정" />
+              <TabButton active={currentTab === 'styles'} onClick={() => setCurrentTab('styles')} icon={<Palette size={16} />} label="스타일 가이드" />
               <TabButton active={currentTab === 'screens'} onClick={() => setCurrentTab('screens')} icon={<Layers size={16} />} label="화면 목록" />
+              <TabButton active={currentTab === 'mockups'} onClick={() => setCurrentTab('mockups')} icon={<PaintBucket size={16} />} label="UI 목업 (S)" hasAlert />
+              <TabButton active={currentTab === 'review'} onClick={() => setCurrentTab('review')} icon={<CheckCircle2 size={16} />} label="기술 검토" />
+              <TabButton active={currentTab === 'confirmation'} onClick={() => setCurrentTab('confirmation')} icon={<ThumbsUp size={16} />} label="설계 확정" />
             </div>
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden min-h-[700px] flex flex-col">
               {currentTab === 'confirmation' && (<div className="p-8 max-w-4xl mx-auto w-full"><div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><div className="p-6 border-b border-gray-200 bg-slate-50 flex justify-between items-center"><h2 className="text-xl font-bold text-gray-900 flex items-center"><CheckCircle2 className="text-orange-600 mr-2" /> UI/UX 설계 최종 확정</h2></div><div className="p-8 space-y-8"><div className="pt-6 border-t border-gray-100"><div className="bg-orange-50 border border-orange-100 rounded-lg p-4 mb-6"><p className="text-orange-800 text-sm font-medium flex items-start"><AlertTriangle size={16} className="mr-2 mt-0.5 shrink-0" /><span>"UI 목업 (S)" 탭에서 전체 10개 화면 디자인을 확인해 주십시오. 이상이 없다면 아래 버튼을 눌러 설계를 확정하고 Phase 3 개발 단계로 넘어갑니다.</span></p></div><div className="flex justify-end space-x-3"><button className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">추가 수정 요청</button><button className="px-6 py-3 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 shadow-lg flex items-center transition-transform transform hover:-translate-y-0.5"><CheckCircle2 className="mr-2" size={18} /> 설계 확정 및 개발 착수 (Phase 3)</button></div></div></div></div></div>)}
@@ -128,7 +130,44 @@ export const App = () => {
               </div>)}
               {currentTab === 'features' && (<div className="p-6"><h3 className="text-lg font-bold text-gray-900 mb-4">기능 정의서</h3><div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-200"><tr><th className="px-4 py-3">ID</th><th className="px-4 py-3">기능명</th><th className="px-4 py-3">상세 설명</th><th className="px-4 py-3">권한</th><th className="px-4 py-3">우선순위</th></tr></thead><tbody className="divide-y divide-gray-100">{featuresData.map((feature) => (<tr key={feature.id} className="hover:bg-gray-50"><td className="px-4 py-3 font-mono text-xs text-orange-600 font-bold">{feature.id}</td><td className="px-4 py-3 font-bold text-gray-800">{feature.name}</td><td className="px-4 py-3 text-gray-600">{feature.desc}</td><td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold">{feature.auth}</span></td><td className="px-4 py-3"><span className={`px-2 py-0.5 rounded text-xs font-bold ${feature.priority === '높음' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{feature.priority}</span></td></tr>))}</tbody></table></div></div>)}
               {currentTab === 'review' && (<div className="p-6"><div className="space-y-4">{inquiriesData.map((item) => (<div key={item.id} className="border border-green-100 bg-white rounded-lg p-5 shadow-sm transition-colors hover:border-orange-200"><div className="flex items-center justify-between mb-3"><span className={`text-xs font-bold px-2 py-1 rounded ${item.category === 'Logic' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}>{item.category}</span><span className="flex items-center space-x-1 text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded-full border border-green-200"><Check size={12} /><span>확정됨</span></span></div><h4 className="text-base font-medium text-gray-500 mb-2">{item.question}</h4><div className="flex items-start space-x-3 bg-slate-50 border border-slate-200 p-4 rounded-lg"><MessageSquare className="text-slate-400 mt-1 shrink-0" size={18} /><div><span className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">최종 결정 사항</span><p className="text-gray-900 font-semibold">{item.answer}</p></div></div></div>))}</div></div>)}
-              {currentTab === 'screens' && (<div className="p-6"><div className="flex justify-between items-center mb-6"><h3 className="text-lg font-bold text-gray-900">화면 목록 정의</h3><div className="flex items-center space-x-2"><span className="text-sm text-gray-500">권한별 보기:</span><select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="border border-gray-300 rounded-md text-sm p-1.5 outline-none focus:ring-2 focus:ring-orange-500"><option value="ALL">전체 권한</option><option value="P001">P001 최고 관리자</option><option value="P002">P002 부서장</option><option value="P003">P003 일반 직원</option></select></div></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{filteredScreens.map((screen) => (<div key={screen.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow bg-white flex flex-col group"><div className="flex justify-between items-start mb-3"><span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">{screen.id}</span></div><h4 className="text-base font-bold text-gray-900 mb-1">{screen.name}</h4><p className="text-sm text-gray-600 mb-4 h-10 line-clamp-2">{screen.desc}</p></div>))}</div></div>)}
+              {currentTab === 'screens' && (
+                <div className="p-6">
+                  {/* Confirmed Banner */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex justify-between items-center animate-fadeIn">
+                    <div className="flex items-center text-green-800">
+                      <Lock size={18} className="mr-2" />
+                      <div>
+                        <span className="font-bold text-sm">화면 목록이 확정되었습니다.</span>
+                        <p className="text-xs text-green-600 mt-0.5">총 {screensData.length}개 화면에 대한 기획 및 디자인 설계가 완료되었습니다.</p>
+                      </div>
+                    </div>
+                    <span className="bg-white text-green-700 text-xs font-bold px-3 py-1 rounded border border-green-200 shadow-sm">Phase 2 Completed</span>
+                  </div>
+
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-gray-900">화면 목록 정의 (Screen List)</h3>
+                    <div className="flex items-center space-x-2"><span className="text-sm text-gray-500">권한별 보기:</span><select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="border border-gray-300 rounded-md text-sm p-1.5 outline-none focus:ring-2 focus:ring-orange-500"><option value="ALL">전체 권한</option><option value="P001">P001 최고 관리자</option><option value="P002">P002 부서장</option><option value="P003">P003 일반 직원</option></select></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredScreens.map((screen) => (
+                      <div key={screen.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow bg-white flex flex-col group relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/5 rounded-bl-full -mr-8 -mt-8"></div>
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded font-mono">{screen.id}</span>
+                          <CheckCircle2 size={16} className="text-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        <h4 className="text-base font-bold text-gray-900 mb-1">{screen.name}</h4>
+                        <p className="text-sm text-gray-600 mb-4 h-10 line-clamp-2">{screen.desc}</p>
+                        <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
+                           <span>Access: {screen.roleAccess.length} roles</span>
+                           <span className="font-medium text-slate-500">Confirmed</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {currentTab === 'styles' && <StyleGuide />}
             </div>
           </div>
         </main>
