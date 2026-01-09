@@ -814,6 +814,8 @@ interface AllocationData {
     name: string;
     dept: string;
     rank: string;
+    techGrade: string; 
+    type: string;
     assignments: {
         projectId: string;
         projectName: string;
@@ -834,6 +836,8 @@ interface ProjectViewData {
     totalMM: number;
 }
 
+const DEPARTMENTS = ["DX 사업본부", "플랫폼 개발팀", "디자인팀", "AI 연구소", "금융사업 2팀", "공공사업 1팀", "CSG"];
+
 export const MockupAllocation = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [projects, setProjects] = useState<any[]>([]);
@@ -841,6 +845,7 @@ export const MockupAllocation = () => {
     const [selectedMonth, setSelectedMonth] = useState(10); // Default October
     const [viewBy, setViewBy] = useState<'person' | 'project'>('person');
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [selectedDeptFilter, setSelectedDeptFilter] = useState("ALL");
 
     // Mock Allocation Logic: Assign projects randomly for demo
     const [allocationMap, setAllocationMap] = useState<AllocationData[]>([]);
@@ -897,6 +902,8 @@ export const MockupAllocation = () => {
                     name: emp.name,
                     dept: emp.dept,
                     rank: emp.rank,
+                    techGrade: emp.techGrade || "초급",
+                    type: emp.type || "정규직",
                     assignments
                 };
             });
@@ -920,8 +927,9 @@ export const MockupAllocation = () => {
     // --- Person View Data ---
     const filteredAllocations = useMemo(() => {
         let list = allocationMap.filter(a => 
-            a.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            a.dept.toLowerCase().includes(searchTerm.toLowerCase())
+            (selectedDeptFilter === 'ALL' || a.dept === selectedDeptFilter) &&
+            (a.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+             a.dept.toLowerCase().includes(searchTerm.toLowerCase()))
         );
 
         if (sortConfig) {
@@ -940,7 +948,7 @@ export const MockupAllocation = () => {
             });
         }
         return list;
-    }, [allocationMap, searchTerm, sortConfig]);
+    }, [allocationMap, searchTerm, sortConfig, selectedDeptFilter]);
 
     // --- Project View Data Transformation ---
     const projectViewData = useMemo(() => {
@@ -998,7 +1006,7 @@ export const MockupAllocation = () => {
     const totalMM = filteredAllocations.reduce((acc, curr) => acc + curr.assignments.reduce((sum, a) => sum + a.mm, 0), 0);
     const idleEmployees = filteredAllocations.filter(a => a.assignments.reduce((sum, i) => sum + i.mm, 0) < 1.0).length;
     const overloadedEmployees = filteredAllocations.filter(a => a.assignments.reduce((sum, i) => sum + i.mm, 0) > 1.0).length;
-    const avgUtilization = totalAvailableEmployees > 0 ? ((totalMM / totalAvailableEmployees) * 100).toFixed(1) : "0.0";
+    const avgUtilization = filteredAllocations.length > 0 ? ((totalMM / filteredAllocations.length) * 100).toFixed(1) : "0.0";
 
     const getUtilizationColor = (mm: number) => {
         if (mm > 1.0) return "bg-red-50 text-red-600 border-red-200 ring-2 ring-red-500/20";
@@ -1033,8 +1041,8 @@ export const MockupAllocation = () => {
 
             <div className="p-6 pb-2 shrink-0 grid grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                    <div className="text-xs font-bold text-slate-500">총 가용 인원 (공통비 제외)</div>
-                    <div className="text-2xl font-black text-slate-800">{totalAvailableEmployees}명</div>
+                    <div className="text-xs font-bold text-slate-500">총 가용 인원 (선택 범위 내)</div>
+                    <div className="text-2xl font-black text-slate-800">{filteredAllocations.length}명</div>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
                     <div className="text-xs font-bold text-slate-500">총 투입 M/M (가동률)</div>
@@ -1063,9 +1071,22 @@ export const MockupAllocation = () => {
                             <Briefcase size={14}/><span>프로젝트별 보기</span>
                         </button>
                     </div>
-                    <div className="relative">
-                        <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-orange-500 w-64 shadow-sm" placeholder={viewBy === 'person' ? "이름, 부서 검색..." : "프로젝트명 검색..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    
+                    <div className="flex items-center space-x-3">
+                        {viewBy === 'person' && (
+                            <select 
+                                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-500 shadow-sm text-slate-600 font-bold min-w-[140px]"
+                                value={selectedDeptFilter}
+                                onChange={(e) => setSelectedDeptFilter(e.target.value)}
+                            >
+                                <option value="ALL">전체 부서</option>
+                                {DEPARTMENTS.map(dept => <option key={dept} value={dept}>{dept}</option>)}
+                            </select>
+                        )}
+                        <div className="relative">
+                            <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                            <input className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-orange-500 w-64 shadow-sm" placeholder={viewBy === 'person' ? "이름, 부서 검색..." : "프로젝트명 검색..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        </div>
                     </div>
                 </div>
 
@@ -1075,15 +1096,18 @@ export const MockupAllocation = () => {
                             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
                                     <th className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('name')}>
-                                        <div className="flex items-center">성명 / 직급 <SortIcon column="name"/></div>
+                                        <div className="flex items-center">성명 / 유형 <SortIcon column="name"/></div>
                                     </th>
                                     <th className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('dept')}>
                                         <div className="flex items-center">소속 부서 <SortIcon column="dept"/></div>
                                     </th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('techGrade')}>
+                                        <div className="flex items-center">기술 등급 <SortIcon column="techGrade"/></div>
+                                    </th>
                                     <th className="px-6 py-4 text-center w-32 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('utilization')}>
                                         <div className="flex items-center justify-center">가동률 (Total) <SortIcon column="utilization"/></div>
                                     </th>
-                                    <th className="px-6 py-4 w-[50%]">프로젝트 배정 현황 (Projects)</th>
+                                    <th className="px-6 py-4 w-[45%]">프로젝트 배정 현황 (M/M)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 font-sans">
@@ -1094,10 +1118,16 @@ export const MockupAllocation = () => {
                                     
                                     return (
                                         <tr key={alloc.employeeId} className="hover:bg-slate-50 transition-colors group">
-                                            <td className="px-6 py-4 font-bold text-slate-800">
-                                                {alloc.name} <span className="text-xs text-slate-400 font-normal ml-1">{alloc.rank}</span>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-800">{alloc.name} <span className="text-xs text-slate-400 font-normal ml-1">{alloc.rank}</span></div>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold mt-1 inline-block ${alloc.type === '정규직' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+                                                    {alloc.type}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">{alloc.dept}</td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                <span className="text-xs bg-slate-100 px-2 py-1 rounded border border-slate-200">{alloc.techGrade}</span>
+                                            </td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="relative inline-block group/tooltip">
                                                     <span className={`px-2 py-1 rounded-md font-black text-xs border flex items-center justify-center space-x-1 ${utilColor}`}>
@@ -1116,7 +1146,9 @@ export const MockupAllocation = () => {
                                                     <div className="space-y-2">
                                                         {alloc.assignments.map((assign, i) => (
                                                             <div key={i} className="flex items-center text-xs">
-                                                                <div className="w-16 font-bold text-slate-500 text-right mr-3">{(assign.mm * 100).toFixed(0)}%</div>
+                                                                <div className="w-24 font-bold text-slate-500 text-right mr-3 font-mono">
+                                                                    {assign.mm.toFixed(1)} M/M
+                                                                </div>
                                                                 <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden relative">
                                                                     <div 
                                                                         className={`h-full rounded-full ${isOverloaded ? 'bg-red-400' : 'bg-blue-500'}`}
@@ -1137,7 +1169,7 @@ export const MockupAllocation = () => {
                                     );
                                 })}
                                 {filteredAllocations.length === 0 && (
-                                    <tr><td colSpan={4} className="text-center py-20 text-gray-400">데이터가 없습니다.</td></tr>
+                                    <tr><td colSpan={5} className="text-center py-20 text-gray-400">데이터가 없습니다.</td></tr>
                                 )}
                             </tbody>
                         </table>
