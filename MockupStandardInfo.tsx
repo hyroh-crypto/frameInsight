@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Settings, Save, Plus, Trash2, ChevronRight, Users, Briefcase, AlertCircle, Calendar, Calculator, Info, Crown, Target, TrendingUp, X, FileEdit, CheckCircle, AlertTriangle, ArrowRight, Lock, Unlock, Shield, PieChart, Layers, Sliders } from 'lucide-react';
+import { Settings, Save, Plus, Trash2, ChevronRight, Users, Briefcase, AlertCircle, Calendar, Calculator, Info, Crown, Target, TrendingUp, X, FileEdit, CheckCircle, AlertTriangle, ArrowRight, Lock, Unlock, Shield, PieChart, Layers, Sliders, ArrowLeftRight } from 'lucide-react';
 import { formatNumber } from './utils';
 import { StorageService } from './persistence';
 
@@ -21,14 +21,15 @@ interface CostStandard {
     type: string;
     insuranceRate: number;
     severanceRate: number;
-    commonCost: number;
+    commonCostRate: number; // Changed from Fixed Amount to Rate (%)
     riskBuffer: number;
 }
 
 interface CompanySettings {
     targetMargin: number;
     totalAnnualRevenueTarget: number;
-    totalCommonCost: number;
+    totalCommonCost: number; // This remains as total budget, but per-person calc uses rate
+    interDeptBillingRate: number; // New: Rate for borrowing internal resources
 }
 
 export const MockupStandardInfo = () => {
@@ -49,8 +50,8 @@ export const MockupStandardInfo = () => {
 
   // Common Tab States
   const [costStandards, setCostStandards] = useState<CostStandard[]>([
-      { id: 1, type: "정규직 (Regular)", insuranceRate: 12.0, severanceRate: 8.33, commonCost: 850000, riskBuffer: 5.0 },
-      { id: 2, type: "프리랜서 (Freelancer)", insuranceRate: 3.5, severanceRate: 0, commonCost: 850000, riskBuffer: 5.0 }
+      { id: 1, type: "정규직 (Regular)", insuranceRate: 12.0, severanceRate: 8.33, commonCostRate: 15.0, riskBuffer: 5.0 },
+      { id: 2, type: "프리랜서 (Freelancer)", insuranceRate: 3.5, severanceRate: 0, commonCostRate: 5.0, riskBuffer: 5.0 }
   ]);
   
   // Company Assigned Targets (Dept -> Amount)
@@ -92,7 +93,8 @@ export const MockupStandardInfo = () => {
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
     targetMargin: 20,
     totalAnnualRevenueTarget: 20000000000, // 200억
-    totalCommonCost: 120000000
+    totalCommonCost: 120000000,
+    interDeptBillingRate: 10.0 // Default 10% markup
   });
 
   const [employees, setEmployees] = useState<any[]>([]);
@@ -109,28 +111,33 @@ export const MockupStandardInfo = () => {
   }, []);
 
   // --- Logic: Calculate Monthly Labor Cost per Person ---
-  const getCalculatedMonthlyCost = (person: any) => {
+  // Updated to use costStandards state and percentages
+  const getCalculatedMonthlyCost = (person: any): number => {
     if (!person || !person.salaries) return 0;
     
     const year = new Date().getFullYear().toString();
     const annualSal = person.salaries[year] || Object.values(person.salaries)[0] || 0;
     const monthlySalary = annualSal / 12;
-    const COMMON_COST = 850000;
     
-    let cost = 0;
-    if (person.type === "정규직") {
-      const insurance = monthlySalary * 0.12;
-      const retirement = monthlySalary * 0.084;
-      cost = (monthlySalary + insurance + retirement + COMMON_COST) * 1.05;
-    } else {
-      const insurance = monthlySalary * 0.05;
-      cost = (monthlySalary + insurance + COMMON_COST) * 1.05;
-    }
-    return Math.round(cost);
+    // Find matching standard
+    const std = costStandards.find(s => {
+        if (person.type === '정규직') return s.type.includes('정규직');
+        return s.type.includes('프리랜서');
+    }) || costStandards[0];
+
+    // Rates from state (divide by 100)
+    const insurance = monthlySalary * (std.insuranceRate / 100);
+    const severance = monthlySalary * (std.severanceRate / 100);
+    const overhead = monthlySalary * (std.commonCostRate / 100); // Fixed -> Rate
+    
+    const baseCost = monthlySalary + insurance + severance + overhead;
+    const totalCost = baseCost * (1 + (std.riskBuffer / 100));
+
+    return Math.round(totalCost);
   };
 
   // --- Logic: Get Total Department Cost ---
-  const getDeptTotalCost = (deptName: string) => {
+  const getDeptTotalCost = (deptName: string): number => {
     const deptEmployees = employees.filter(e => e.dept === deptName);
     return deptEmployees.reduce((acc: number, emp: any) => acc + getCalculatedMonthlyCost(emp), 0);
   };
@@ -264,7 +271,7 @@ export const MockupStandardInfo = () => {
 
   // Cost Standard Handlers
   const addCostStandard = () => {
-      setCostStandards([...costStandards, { id: Date.now(), type: "New Type", insuranceRate: 0, severanceRate: 0, commonCost: 0, riskBuffer: 0 }]);
+      setCostStandards([...costStandards, { id: Date.now(), type: "New Type", insuranceRate: 0, severanceRate: 0, commonCostRate: 0, riskBuffer: 0 }]);
   };
   const updateCostStandard = (id: number, field: keyof CostStandard, value: any) => {
       setCostStandards(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
@@ -388,7 +395,7 @@ export const MockupStandardInfo = () => {
                                       <th className="px-4 py-3">구분 (Type)</th>
                                       <th className="px-4 py-3 text-right">4대보험 (%)</th>
                                       <th className="px-4 py-3 text-right">퇴직금 (%)</th>
-                                      <th className="px-4 py-3 text-right">공통비 (Fixed)</th>
+                                      <th className="px-4 py-3 text-right bg-orange-50/50">공통비율 (Overhead %)</th>
                                       <th className="px-4 py-3 text-right">Buffer (%)</th>
                                       <th className="px-4 py-3 w-10"></th>
                                   </tr>
@@ -405,8 +412,10 @@ export const MockupStandardInfo = () => {
                                           <td className="px-4 py-2 text-right">
                                               <input type="number" className="w-16 text-right bg-transparent border border-gray-200 rounded px-1 py-1 focus:border-orange-500 outline-none" value={std.severanceRate} onChange={(e) => updateCostStandard(std.id, 'severanceRate', parseFloat(e.target.value) || 0)} />
                                           </td>
-                                          <td className="px-4 py-2 text-right">
-                                              <input type="number" className="w-24 text-right bg-transparent border border-gray-200 rounded px-1 py-1 focus:border-orange-500 outline-none font-mono" value={std.commonCost} onChange={(e) => updateCostStandard(std.id, 'commonCost', parseInt(e.target.value) || 0)} />
+                                          <td className="px-4 py-2 text-right bg-orange-50/20">
+                                              <div className="flex items-center justify-end">
+                                                <input type="number" className="w-16 text-right bg-white border border-orange-200 rounded px-1 py-1 focus:border-orange-500 outline-none font-bold text-orange-700" value={std.commonCostRate} onChange={(e) => updateCostStandard(std.id, 'commonCostRate', parseFloat(e.target.value) || 0)} />
+                                              </div>
                                           </td>
                                           <td className="px-4 py-2 text-right">
                                               <input type="number" className="w-16 text-right bg-transparent border border-gray-200 rounded px-1 py-1 focus:border-orange-500 outline-none" value={std.riskBuffer} onChange={(e) => updateCostStandard(std.id, 'riskBuffer', parseFloat(e.target.value) || 0)} />
@@ -418,6 +427,9 @@ export const MockupStandardInfo = () => {
                                   ))}
                               </tbody>
                           </table>
+                          <div className="p-3 text-[10px] text-gray-400 border-t border-slate-100 flex items-center justify-end">
+                              <Info size={12} className="mr-1"/> 공통비율: 인건비(급여) 대비 본사 운영비를 배분하는 비율 (예: 급여의 15%)
+                          </div>
                       </div>
                   </div>
 
@@ -425,9 +437,9 @@ export const MockupStandardInfo = () => {
                   <div className="col-span-5 bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-6">
                       <div className="border-b border-slate-100 pb-3">
                           <h3 className="text-sm font-bold text-slate-800 flex items-center mb-1">
-                              <Target size={16} className="mr-2 text-orange-500" /> 전사 목표 설정 (Company Targets)
+                              <Target size={16} className="mr-2 text-orange-500" /> 전사 목표 및 정책 설정 (Company Policies)
                           </h3>
-                          <p className="text-xs text-slate-400">회계 연도 기준 전사 매출 및 이익률 목표를 설정합니다.</p>
+                          <p className="text-xs text-slate-400">회계 연도 기준 매출, 이익률 및 부서간 정산 정책을 관리합니다.</p>
                       </div>
                       
                       <div className="space-y-4">
@@ -458,12 +470,35 @@ export const MockupStandardInfo = () => {
                               </div>
                           </div>
 
+                           {/* New Feature: Inter-Dept Markup Rate */}
+                           <div className="flex flex-col p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                              <div className="flex justify-between items-center mb-2">
+                                  <label className="text-xs font-bold text-blue-800 flex items-center">
+                                      <ArrowLeftRight size={14} className="mr-1.5" /> 
+                                      타 부서 인력 투입 가산율 (Markup)
+                                  </label>
+                                  <div className="flex items-center">
+                                      <span className="text-xs font-bold text-blue-600 mr-1">+</span>
+                                      <input 
+                                          className="text-right font-black text-blue-600 bg-transparent outline-none border-b border-blue-300 focus:border-blue-500 w-16" 
+                                          value={companySettings.interDeptBillingRate}
+                                          onChange={(e) => setCompanySettings({...companySettings, interDeptBillingRate: Number(e.target.value)})}
+                                      />
+                                      <span className="text-xs text-blue-400 ml-1">%</span>
+                                  </div>
+                              </div>
+                              <p className="text-[10px] text-blue-400 leading-relaxed">
+                                  내부 인력을 타 부서 프로젝트에 투입 시, 원가에 해당 비율만큼 가산하여 정산합니다.<br/>
+                                  (예: 원가 100만 + 10% Markup = 110만 청구)
+                              </p>
+                          </div>
+
                            <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                              <label className="text-xs font-bold text-slate-600">공통비 설정 (Total Common Cost)</label>
+                              <label className="text-xs font-bold text-slate-600">공통비 예산 (Budget Only)</label>
                               <div className="flex items-center">
                                   <span className="text-xs text-slate-400 mr-2">₩</span>
                                   <input 
-                                      className="text-right font-black text-slate-800 bg-transparent outline-none border-b border-slate-300 focus:border-orange-500 w-40" 
+                                      className="text-right font-black text-slate-400 bg-transparent outline-none border-b border-slate-300 focus:border-orange-500 w-40" 
                                       value={formatNumber(companySettings.totalCommonCost)}
                                       onChange={(e) => {
                                           const val = Number(e.target.value.replace(/,/g, ''));
@@ -592,7 +627,7 @@ export const MockupStandardInfo = () => {
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative group">
                     <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center">
-                        <Briefcase size={14} className="mr-1 text-orange-500" /> 전사 총 공통비
+                        <Briefcase size={14} className="mr-1 text-orange-500" /> 전사 총 공통비 (Budget)
                     </span>
                     <Info size={14} className="text-gray-300" />
                     </div>
@@ -780,7 +815,7 @@ export const MockupStandardInfo = () => {
                               <Users size={18} className="mr-2 text-slate-500"/> {selectedDept} 인원 현황
                           </h3>
                           <p className="text-xs text-slate-500 mt-1 ml-6">
-                              월 인건비 합계: <span className="font-bold text-orange-600">₩ {formatNumber(selectedDeptTotalCost)}</span> (공통비 포함, 실제 원가 기준)
+                              월 인건비 합계: <span className="font-bold text-orange-600">₩ {formatNumber(selectedDeptTotalCost)}</span> (공통비 비율 {costStandards[0].commonCostRate}% 적용)
                           </p>
                       </div>
                     </div>
