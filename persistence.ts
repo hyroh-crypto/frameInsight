@@ -1,6 +1,4 @@
 
-
-
 /**
  * FrameInsight Persistence Layer (Production Bridge)
  * This module connects to your AWS PHP/MySQL Backend.
@@ -48,52 +46,36 @@ export const StorageService = {
   // Employees
   getEmployees: async () => {
     if (useLocalStorage) return getLocal('fi_employees', [
-      // DX 사업본부 (5명) - Includes EMP-2020-045 (김철수)
-      { id: "EMP-2020-045", name: "김철수", dept: "DX 사업본부", rank: "수석", hireYear: "2020", type: "정규직", salaries: { "2024": 85000000, "2025": 90000000 } },
-      { id: "EMP-2021-002", name: "이영희", dept: "DX 사업본부", rank: "책임", hireYear: "2021", type: "정규직", salaries: { "2024": 75000000 } },
-      { id: "EMP-2022-003", name: "박지민", dept: "DX 사업본부", rank: "선임", hireYear: "2022", type: "정규직", salaries: { "2024": 65000000 } },
-      { id: "EMP-2023-004", name: "최민수", dept: "DX 사업본부", rank: "전임", hireYear: "2023", type: "정규직", salaries: { "2024": 55000000 } },
-      { id: "EMP-2024-005", name: "정다은", dept: "DX 사업본부", rank: "사원", hireYear: "2024", type: "정규직", salaries: { "2024": 45000000 } },
+      // DX 사업본부
+      { id: "EMP-2020-045", name: "김철수", dept: "DX 사업본부", rank: "수석", techGrade: "특급", hireYear: "2020", type: "정규직", salaries: { "2024": 85000000, "2025": 90000000, "2026": 95000000 } },
+      { id: "EMP-2021-002", name: "이영희", dept: "DX 사업본부", rank: "책임", techGrade: "고급", hireYear: "2021", type: "정규직", salaries: { "2024": 75000000 } },
+      { id: "EMP-2022-003", name: "박지민", dept: "DX 사업본부", rank: "선임", techGrade: "중급", hireYear: "2022", type: "정규직", salaries: { "2024": 65000000 } },
+      { id: "EMP-2023-004", name: "최민수", dept: "DX 사업본부", rank: "전임", techGrade: "중급", hireYear: "2023", type: "정규직", salaries: { "2024": 55000000 } },
+      { id: "EMP-2024-005", name: "정다은", dept: "DX 사업본부", rank: "사원", techGrade: "초급", hireYear: "2024", type: "정규직", salaries: { "2024": 45000000 } },
 
-      // 플랫폼 개발팀 (5명) - Includes EMP-2024-001 (홍길동)
-      { id: "EMP-2024-001", name: "홍길동", dept: "플랫폼 개발팀", rank: "사원", hireYear: "2024", type: "정규직", salaries: { "2024": 50000000, "2025": 54000000 } },
-      { id: "EMP-2019-011", name: "강감찬", dept: "플랫폼 개발팀", rank: "팀장", hireYear: "2019", type: "정규직", salaries: { "2024": 92000000 } },
-      { id: "EMP-2020-012", name: "이순신", dept: "플랫폼 개발팀", rank: "수석", hireYear: "2020", type: "정규직", salaries: { "2024": 82000000 } },
-      { id: "EMP-2021-013", name: "장보고", dept: "플랫폼 개발팀", rank: "책임", hireYear: "2021", type: "정규직", salaries: { "2024": 72000000 } },
-      { id: "EMP-2022-014", name: "안중근", dept: "플랫폼 개발팀", rank: "선임", hireYear: "2022", type: "정규직", salaries: { "2024": 62000000 } },
+      // 플랫폼 개발팀
+      { id: "EMP-2024-001", name: "홍길동", dept: "플랫폼 개발팀", rank: "사원", techGrade: "초급", hireYear: "2024", type: "정규직", salaries: { "2024": 50000000, "2025": 54000000, "2026": 58000000 } },
+      { id: "EMP-2019-011", name: "강감찬", dept: "플랫폼 개발팀", rank: "팀장", techGrade: "특급", hireYear: "2019", type: "정규직", salaries: { "2024": 92000000 } },
+      { id: "EMP-2020-012", name: "이순신", dept: "플랫폼 개발팀", rank: "수석", techGrade: "특급", hireYear: "2020", type: "정규직", salaries: { "2024": 82000000 } },
+      
+      // 디자인팀 (프리랜서 포함)
+      { id: "EMP-2020-021", name: "송혜교", dept: "디자인팀", rank: "수석", techGrade: "특급", hireYear: "2020", type: "정규직", salaries: { "2024": 80000000 } },
+      { id: "EMP-2021-022", name: "전지현", dept: "디자인팀", rank: "책임", techGrade: "고급", hireYear: "2021", type: "정규직", salaries: { "2024": 70000000 } },
+      { id: "EMP-2024-025", name: "한가인", dept: "디자인팀", rank: "사원", techGrade: "중급", hireYear: "2024", type: "프리랜서", 
+        contracts: [
+            { id: 1, seq: 1, startDate: "2024-01-01", endDate: "2024-12-31", monthlyAmount: 4500000 },
+            { id: 2, seq: 2, startDate: "2025-01-01", endDate: "2025-12-31", monthlyAmount: 5000000 }
+        ] 
+      },
 
-      // 디자인팀 (5명)
-      { id: "EMP-2020-021", name: "송혜교", dept: "디자인팀", rank: "수석", hireYear: "2020", type: "정규직", salaries: { "2024": 80000000 } },
-      { id: "EMP-2021-022", name: "전지현", dept: "디자인팀", rank: "책임", hireYear: "2021", type: "정규직", salaries: { "2024": 70000000 } },
-      { id: "EMP-2022-023", name: "손예진", dept: "디자인팀", rank: "선임", hireYear: "2022", type: "정규직", salaries: { "2024": 60000000 } },
-      { id: "EMP-2023-024", name: "김태희", dept: "디자인팀", rank: "전임", hireYear: "2023", type: "정규직", salaries: { "2024": 50000000 } },
-      { id: "EMP-2024-025", name: "한가인", dept: "디자인팀", rank: "사원", hireYear: "2024", type: "프리랜서", salaries: { "2024": 45000000 } },
+      // AI 연구소
+      { id: "EMP-2018-031", name: "이세돌", dept: "AI 연구소", rank: "소장", techGrade: "특급", hireYear: "2018", type: "정규직", salaries: { "2024": 120000000 } },
+      { id: "EMP-2020-032", name: "데미스", dept: "AI 연구소", rank: "수석", techGrade: "특급", hireYear: "2020", type: "정규직", salaries: { "2024": 90000000 } },
 
-      // AI 연구소 (5명)
-      { id: "EMP-2018-031", name: "이세돌", dept: "AI 연구소", rank: "소장", hireYear: "2018", type: "정규직", salaries: { "2024": 120000000 } },
-      { id: "EMP-2020-032", name: "데미스", dept: "AI 연구소", rank: "수석", hireYear: "2020", type: "정규직", salaries: { "2024": 90000000 } },
-      { id: "EMP-2021-033", name: "제프리", dept: "AI 연구소", rank: "책임", hireYear: "2021", type: "정규직", salaries: { "2024": 80000000 } },
-      { id: "EMP-2022-034", name: "얀르쿤", dept: "AI 연구소", rank: "선임", hireYear: "2022", type: "정규직", salaries: { "2024": 70000000 } },
-      { id: "EMP-2023-035", name: "앤드류", dept: "AI 연구소", rank: "전임", hireYear: "2023", type: "정규직", salaries: { "2024": 60000000 } },
-
-      // 금융사업 2팀 (5명)
-      { id: "EMP-2019-041", name: "워렌", dept: "금융사업 2팀", rank: "팀장", hireYear: "2019", type: "정규직", salaries: { "2024": 95000000 } },
-      { id: "EMP-2020-042", name: "찰리", dept: "금융사업 2팀", rank: "수석", hireYear: "2020", type: "정규직", salaries: { "2024": 85000000 } },
-      { id: "EMP-2021-043", name: "조지", dept: "금융사업 2팀", rank: "책임", hireYear: "2021", type: "정규직", salaries: { "2024": 75000000 } },
-      { id: "EMP-2022-044", name: "레이", dept: "금융사업 2팀", rank: "선임", hireYear: "2022", type: "정규직", salaries: { "2024": 65000000 } },
-      { id: "EMP-2023-045", name: "피터", dept: "금융사업 2팀", rank: "전임", hireYear: "2023", type: "정규직", salaries: { "2024": 55000000 } },
-
-      // 공공사업 1팀 (5명)
-      { id: "EMP-2019-051", name: "스티브", dept: "공공사업 1팀", rank: "팀장", hireYear: "2019", type: "정규직", salaries: { "2024": 93000000 } },
-      { id: "EMP-2020-052", name: "빌리", dept: "공공사업 1팀", rank: "수석", hireYear: "2020", type: "정규직", salaries: { "2024": 83000000 } },
-      { id: "EMP-2021-053", name: "래리", dept: "공공사업 1팀", rank: "책임", hireYear: "2021", type: "정규직", salaries: { "2024": 73000000 } },
-      { id: "EMP-2022-054", name: "세르게이", dept: "공공사업 1팀", rank: "선임", hireYear: "2022", type: "정규직", salaries: { "2024": 63000000 } },
-      { id: "EMP-2023-055", name: "선다", dept: "공공사업 1팀", rank: "전임", hireYear: "2023", type: "정규직", salaries: { "2024": 53000000 } },
-
-      // 퇴사자 (Resigned) - Dummy Data
-      { id: "EMP-2018-991", name: "나퇴사", dept: "CSG", rank: "책임", hireYear: "2018", type: "정규직", salaries: { "2023": 68000000 }, isArchived: true },
-      { id: "EMP-2020-992", name: "김과거", dept: "플랫폼 개발팀", rank: "선임", hireYear: "2020", type: "프리랜서", contracts: [{ id: 1, seq: 1, startDate: "2020-01-01", endDate: "2021-12-31", monthlyAmount: 5500000 }], isArchived: true },
-      { id: "EMP-2019-993", name: "박떠남", dept: "디자인팀", rank: "전임", hireYear: "2019", type: "정규직", salaries: { "2023": 45000000 }, isArchived: true }
+      // 퇴사자
+      { id: "EMP-2018-991", name: "나퇴사", dept: "CSG", rank: "책임", techGrade: "중급", hireYear: "2018", type: "정규직", salaries: { "2023": 68000000 }, isArchived: true },
+      { id: "EMP-2020-992", name: "김과거", dept: "플랫폼 개발팀", rank: "선임", techGrade: "중급", hireYear: "2020", type: "프리랜서", contracts: [{ id: 1, seq: 1, startDate: "2020-01-01", endDate: "2021-12-31", monthlyAmount: 5500000 }], isArchived: true },
+      { id: "EMP-2019-993", name: "박떠남", dept: "디자인팀", rank: "전임", techGrade: "중급", hireYear: "2019", type: "정규직", salaries: { "2023": 45000000 }, isArchived: true }
     ]);
     
     const res = await fetch(`${API_BASE_URL}/employees.php`);

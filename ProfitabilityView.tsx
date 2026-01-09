@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, Save, Plus, Trash2, FileText, MessageSquare, Send, Calendar, User, Info, MoreHorizontal, Settings, Download, X, History, Users, GripVertical, Check, AlertCircle, Lock } from 'lucide-react';
 import { formatNumber } from './utils';
 import { StorageService } from './persistence';
@@ -55,14 +56,14 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
 
     const [employees, setEmployees] = useState<any[]>([]);
     
-    // Employee Search State
-    const [activeSearchRow, setActiveSearchRow] = useState<number | null>(null);
-    const searchRef = useRef<HTMLDivElement>(null);
+    // Employee Search State with Rect for Portal positioning
+    const [activeSearchState, setActiveSearchState] = useState<{ id: number, rect: DOMRect } | null>(null);
+    const searchPortalRef = useRef<HTMLDivElement>(null);
 
-    // Memo Edit State
-    const [activeMemoRowId, setActiveMemoRowId] = useState<number | null>(null);
+    // Memo Edit State with Rect for Portal positioning
+    const [activeMemoState, setActiveMemoState] = useState<{ id: number, rect: DOMRect } | null>(null);
     const [newMemoText, setNewMemoText] = useState("");
-    const memoPopoverRef = useRef<HTMLDivElement>(null);
+    const memoPortalRef = useRef<HTMLDivElement>(null);
 
     // Drag & Drop State
     const [draggedEstimateIndex, setDraggedEstimateIndex] = useState<number | null>(null);
@@ -76,16 +77,30 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
         loadData();
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-                setActiveSearchRow(null);
+            if (searchPortalRef.current && !searchPortalRef.current.contains(event.target as Node)) {
+                // Delay closing slightly to allow click event on input to handle its logic if needed, 
+                // but direct close is usually fine if we don't block input clicks.
+                // However, clicking the input again will trigger its onClick which sets state.
+                // We just close it here.
+                setActiveSearchState(null);
             }
-            if (memoPopoverRef.current && !memoPopoverRef.current.contains(event.target as Node)) {
-                setActiveMemoRowId(null);
+            if (memoPortalRef.current && !memoPortalRef.current.contains(event.target as Node)) {
+                setActiveMemoState(null);
             }
         };
+
+        const handleScroll = () => {
+             if (activeSearchState) setActiveSearchState(null);
+             if (activeMemoState) setActiveMemoState(null);
+        };
+
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+        document.addEventListener("scroll", handleScroll, true); // Capture scroll in any container
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("scroll", handleScroll, true);
+        };
+    }, [activeSearchState, activeMemoState]);
 
     // 1. Cost Management (Outsourcing & Expenses)
     const [outsourcingCosts, setOutsourcingCosts] = useState<CostItem[]>([
@@ -240,7 +255,7 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
             type: emp.type as any,
             monthlyCost: monthlyCost
         } : item));
-        setActiveSearchRow(null);
+        setActiveSearchState(null);
     };
 
     const onDragStartResource = (e: React.DragEvent, index: number) => {
@@ -259,11 +274,13 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
     };
 
     // --- Handlers: Threaded Memo ---
-    const toggleMemo = (rowId: number) => {
-        if (activeMemoRowId === rowId) {
-            setActiveMemoRowId(null);
+    const toggleMemo = (e: React.MouseEvent, rowId: number) => {
+        e.stopPropagation();
+        if (activeMemoState?.id === rowId) {
+            setActiveMemoState(null);
         } else {
-            setActiveMemoRowId(rowId);
+            const rect = e.currentTarget.getBoundingClientRect();
+            setActiveMemoState({ id: rowId, rect });
             setNewMemoText("");
         }
     };
@@ -289,6 +306,100 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
         if (!term) return employees;
         return employees.filter(e => e.name.includes(term) || e.dept.includes(term));
     };
+
+    // --- PORTAL RENDERERS ---
+    const SearchPortal = activeSearchState ? createPortal(
+        <div 
+            ref={searchPortalRef}
+            className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto font-sans animate-fadeIn"
+            style={{ 
+                top: activeSearchState.rect.bottom + 4, 
+                left: activeSearchState.rect.left,
+                width: Math.max(activeSearchState.rect.width, 240)
+            }}
+        >
+            {getFilteredEmployees(resourceRows.find(r => r.id === activeSearchState.id)?.name || "").length > 0 ? (
+                getFilteredEmployees(resourceRows.find(r => r.id === activeSearchState.id)?.name || "").map(emp => (
+                    <div 
+                        key={emp.id} 
+                        className="px-3 py-2 hover:bg-orange-50 cursor-pointer border-b border-gray-50 last:border-0"
+                        onClick={() => handleEmployeeSelect(activeSearchState.id, emp)}
+                    >
+                        <div className="font-bold text-slate-800 text-xs">{emp.name}</div>
+                        <div className="text-[10px] text-gray-500 flex justify-between">
+                            <span>{emp.dept} {emp.rank}</span>
+                            <span>{emp.type}</span>
+                        </div>
+                    </div>
+                ))
+            ) : (
+                <div className="px-3 py-2 text-gray-400 text-center text-xs">검색 결과 없음</div>
+            )}
+        </div>,
+        document.body
+    ) : null;
+
+    const MemoPortal = activeMemoState ? createPortal(
+        <div 
+            ref={memoPortalRef}
+            className="fixed z-[9999] bg-white border border-gray-200 shadow-xl rounded-xl flex flex-col overflow-hidden font-sans animate-fadeIn"
+            style={{
+                top: activeMemoState.rect.top,
+                left: activeMemoState.rect.left - 330, // Show to the left of the button
+                width: 320
+            }}
+        >
+             <div className="bg-slate-50 px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+                <h4 className="text-xs font-bold text-slate-600 flex items-center"><MessageSquare size={12} className="mr-1.5"/> 메모 스레드</h4>
+                <button onClick={() => setActiveMemoState(null)}><X size={14} className="text-gray-400 hover:text-gray-600"/></button>
+            </div>
+            
+            <div className="max-h-60 overflow-y-auto p-3 space-y-3 bg-slate-50/30">
+                {resourceRows.find(r => r.id === activeMemoState.id)?.memo.length === 0 && <div className="text-center text-xs text-gray-400 py-4">작성된 메모가 없습니다.</div>}
+                {resourceRows.find(r => r.id === activeMemoState.id)?.memo.map(m => (
+                    <div key={m.id} className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm group">
+                        <div className="flex justify-between items-start mb-1">
+                            <div className="flex items-center space-x-1.5">
+                                <div className="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[9px] font-bold">{m.author[0]}</div>
+                                <span className="text-[10px] font-bold text-slate-700">{m.author}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                                <span className="text-[9px] text-gray-400">{m.date}</span>
+                                <button onClick={() => deleteMemoFromRow(activeMemoState.id, m.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={10}/></button>
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                    </div>
+                ))}
+            </div>
+
+            <div className="p-2 border-t border-gray-100 bg-white">
+                <div className="flex items-end space-x-2">
+                    <textarea 
+                        className="flex-1 text-xs border border-gray-200 rounded-lg p-2 resize-none outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-100 h-16"
+                        placeholder="메모를 입력하세요..."
+                        value={newMemoText}
+                        onChange={(e) => setNewMemoText(e.target.value)}
+                        onKeyDown={(e) => {
+                            if(e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                addMemoToRow(activeMemoState.id);
+                            }
+                        }}
+                    />
+                    <button 
+                        onClick={() => addMemoToRow(activeMemoState.id)}
+                        className="bg-orange-600 hover:bg-orange-700 text-white p-2 rounded-lg transition-colors shadow-sm"
+                    >
+                        <Send size={14} />
+                    </button>
+                </div>
+            </div>
+            {/* Arrow on the right side pointing to button */}
+            <div className="absolute top-4 -right-1.5 w-3 h-3 bg-white border-t border-r border-gray-200 rotate-45 z-10"></div>
+        </div>,
+        document.body
+    ) : null;
 
     return (
         <div className="h-full flex flex-col bg-slate-50 animate-fadeIn font-sans overflow-y-auto">
@@ -419,7 +530,9 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                             <span className="text-xs font-bold text-slate-800">총 예상 매출: ₩ {formatNumber(totalEstimateRevenue)}</span>
                         </div>
                     </div>
-                    <table className="w-full text-xs text-left">
+                    {/* Added overflow-x-auto for responsiveness */}
+                    <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left whitespace-nowrap">
                         <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
                             <tr>
                                 <th className="px-6 py-3 w-10"></th>
@@ -455,6 +568,7 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                     <button onClick={addEstimateRow} className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-t border-gray-100 flex items-center justify-center">+ 계획 추가 (Row)</button>
                     
                     {/* History Section */}
@@ -497,7 +611,8 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                             <span className="flex items-center"><div className="w-2 h-2 rounded-full bg-gray-500 mr-1.5"></div>외주(용역)</span>
                         </div>
                     </div>
-                    <div className="overflow-visible">
+                    {/* Changed to overflow-x-auto to handle wide tables on small screens */}
+                    <div className="overflow-x-auto border-t border-gray-100 min-h-[300px]">
                         <table className="w-full text-xs text-left whitespace-nowrap">
                             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
                                 <tr>
@@ -538,36 +653,23 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                                                 placeholder={row.dept === '외주' ? '이름 검색..' : '이름'}
                                                 onChange={(e) => {
                                                     updateResourceRow(row.id, 'name', e.target.value);
-                                                    setActiveSearchRow(row.id);
-                                                    // Reset personId if typing manually (unless selected from dropdown again)
-                                                    // But better to keep personId until user clears or changes significantly.
-                                                    // Here we don't clear personId on simple type, user must clear or select new.
-                                                    // Actually if they type something that doesn't match, it should be treated as manual entry eventually?
-                                                    // For now, simple logic: typing searching.
+                                                    if (e.target.value) {
+                                                        const rect = e.target.getBoundingClientRect();
+                                                        setActiveSearchState({ id: row.id, rect });
+                                                    } else {
+                                                        setActiveSearchState(null);
+                                                    }
                                                 }}
-                                                onFocus={() => setActiveSearchRow(row.id)}
+                                                onFocus={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setActiveSearchState({ id: row.id, rect });
+                                                }}
+                                                onClick={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setActiveSearchState({ id: row.id, rect });
+                                                }}
                                             />
-                                            {activeSearchRow === row.id && (
-                                                <div ref={searchRef} className="absolute top-full left-0 z-50 w-64 bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
-                                                    {getFilteredEmployees(row.name).length > 0 ? (
-                                                        getFilteredEmployees(row.name).map(emp => (
-                                                            <div 
-                                                                key={emp.id} 
-                                                                className="px-3 py-2 hover:bg-orange-50 cursor-pointer border-b border-gray-50 last:border-0"
-                                                                onClick={() => handleEmployeeSelect(row.id, emp)}
-                                                            >
-                                                                <div className="font-bold text-slate-800">{emp.name}</div>
-                                                                <div className="text-[10px] text-gray-500 flex justify-between">
-                                                                    <span>{emp.dept} {emp.rank}</span>
-                                                                    <span>{emp.type}</span>
-                                                                </div>
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="px-3 py-2 text-gray-400 text-center">검색 결과 없음</div>
-                                                    )}
-                                                </div>
-                                            )}
+                                            {/* Dropdown removed from here, moved to Portal */}
                                         </td>
                                         
                                         <td className="px-4 py-3 text-slate-500">{row.grade}</td>
@@ -609,64 +711,12 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                                         
                                         {/* Memo Actions */}
                                         <td className="px-4 py-3 text-center relative">
-                                            <button onClick={() => toggleMemo(row.id)} className="transition-transform active:scale-95 relative">
+                                            <button onClick={(e) => toggleMemo(e, row.id)} className="transition-transform active:scale-95 relative">
                                                 <MessageSquare size={16} className={`mx-auto ${row.memo.length > 0 ? 'text-orange-500 fill-orange-50' : 'text-gray-300 hover:text-orange-400'}`} />
                                                 {row.memo.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
                                             </button>
                                             
-                                            {/* Threaded Memo Popover */}
-                                            {activeMemoRowId === row.id && (
-                                                <div ref={memoPopoverRef} className="absolute right-full top-0 mr-3 w-80 bg-white border border-gray-200 shadow-xl rounded-xl z-50 flex flex-col overflow-hidden">
-                                                    <div className="bg-slate-50 px-3 py-2 border-b border-gray-100 flex justify-between items-center">
-                                                        <h4 className="text-xs font-bold text-slate-600 flex items-center"><MessageSquare size={12} className="mr-1.5"/> 메모 스레드</h4>
-                                                        <button onClick={() => setActiveMemoRowId(null)}><X size={14} className="text-gray-400 hover:text-gray-600"/></button>
-                                                    </div>
-                                                    
-                                                    <div className="max-h-60 overflow-y-auto p-3 space-y-3 bg-slate-50/30">
-                                                        {row.memo.length === 0 && <div className="text-center text-xs text-gray-400 py-4">작성된 메모가 없습니다.</div>}
-                                                        {row.memo.map(m => (
-                                                            <div key={m.id} className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm group">
-                                                                <div className="flex justify-between items-start mb-1">
-                                                                    <div className="flex items-center space-x-1.5">
-                                                                        <div className="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[9px] font-bold">{m.author[0]}</div>
-                                                                        <span className="text-[10px] font-bold text-slate-700">{m.author}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center space-x-1">
-                                                                        <span className="text-[9px] text-gray-400">{m.date}</span>
-                                                                        <button onClick={() => deleteMemoFromRow(row.id, m.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={10}/></button>
-                                                                    </div>
-                                                                </div>
-                                                                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{m.content}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                    <div className="p-2 border-t border-gray-100 bg-white">
-                                                        <div className="flex items-end space-x-2">
-                                                            <textarea 
-                                                                className="flex-1 text-xs border border-gray-200 rounded-lg p-2 resize-none outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-100 h-16"
-                                                                placeholder="메모를 입력하세요..."
-                                                                value={newMemoText}
-                                                                onChange={(e) => setNewMemoText(e.target.value)}
-                                                                onKeyDown={(e) => {
-                                                                    if(e.key === 'Enter' && !e.shiftKey) {
-                                                                        e.preventDefault();
-                                                                        addMemoToRow(row.id);
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <button 
-                                                                onClick={() => addMemoToRow(row.id)}
-                                                                className="bg-orange-600 hover:bg-orange-700 text-white p-2 rounded-lg transition-colors shadow-sm"
-                                                            >
-                                                                <Send size={14} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    {/* Arrow */}
-                                                    <div className="absolute top-3 -right-1.5 w-3 h-3 bg-slate-50 border-t border-r border-gray-200 rotate-45 z-10"></div>
-                                                </div>
-                                            )}
+                                            {/* Memo Popover moved to Portal */}
                                         </td>
                                         
                                         <td className="px-4 py-3 text-center"><button onClick={() => removeResourceRow(row.id)}><Trash2 size={14} className="text-gray-300 hover:text-red-500"/></button></td>
@@ -686,6 +736,8 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                     <button onClick={addResourceRow} className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-t border-gray-100 flex items-center justify-center">+ 인력 추가 (Role)</button>
                 </div>
             </div>
+            {SearchPortal}
+            {MemoPortal}
         </div>
     );
 };
