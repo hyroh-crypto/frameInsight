@@ -44,7 +44,8 @@ export const PersonSelector = ({
   
     const filtered = employeeDB.filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (p.rank && p.rank.toLowerCase().includes(searchTerm.toLowerCase()))
+      (p.rank && p.rank.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (p.dept && p.dept.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   
     if (disabled) {
@@ -85,7 +86,7 @@ export const PersonSelector = ({
               >
                 <div className="font-bold text-slate-800 group-hover:text-orange-700">{emp.name}</div>
                 <div className="flex justify-between mt-0.5 text-[10px] text-gray-500">
-                    <span>{emp.rank || emp.role}</span>
+                    <span>{emp.dept} {emp.rank ? `· ${emp.rank}` : ''}</span>
                     <span className={`px-1.5 py-0.5 rounded ${emp.type === '정규직' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>{emp.type}</span>
                 </div>
               </li>

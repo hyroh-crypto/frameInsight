@@ -309,7 +309,12 @@ export const MockupProposalReview = () => {
                                                     <>
                                                         <div className="flex-1 space-y-1">
                                                             <div className="text-[9px] font-bold text-slate-400 uppercase">투입 인원</div>
-                                                            <PersonSelector personId={alloc.personId} onChange={(pid) => updateAllocation(selected.id, alloc.id, 'personId', pid)} disabled={false} employeeDB={employees} />
+                                                            <PersonSelector 
+                                                                personId={alloc.personId} 
+                                                                onChange={(pid) => updateAllocation(selected.id, alloc.id, 'personId', pid)} 
+                                                                disabled={false} 
+                                                                employeeDB={employees.filter(e => e.type === '정규직')} // Filtered for Regular Staff
+                                                            />
                                                         </div>
                                                         <div className="w-14 space-y-1">
                                                             <div className="text-[9px] font-bold text-slate-400 uppercase text-center">M/M</div>
