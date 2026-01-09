@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { UserPlus, Save, UserCheck, ChevronLeft, Search, Users, Plus, Archive, UserX, FileSpreadsheet, HelpCircle, Calendar, AlertCircle, RotateCcw, UserMinus, ArrowUpDown, ArrowUp, ArrowDown, X, Mail, BarChart3, AlertTriangle, CheckCircle2, Filter } from 'lucide-react';
+import { UserPlus, Save, UserCheck, ChevronLeft, Search, Users, Plus, Archive, UserX, FileSpreadsheet, HelpCircle, Calendar, AlertCircle, RotateCcw, UserMinus, ArrowUpDown, ArrowUp, ArrowDown, X, Mail, BarChart3, AlertTriangle, CheckCircle2, Filter, Briefcase, Layers } from 'lucide-react';
 import { formatNumber } from './utils';
 import { StorageService } from './persistence';
 
@@ -821,11 +821,26 @@ interface AllocationData {
     }[];
 }
 
+interface ProjectViewData {
+    projectId: string;
+    projectName: string;
+    client: string; // From Persistence/Logic
+    assignedMembers: {
+        name: string;
+        rank: string;
+        dept: string;
+        mm: number;
+    }[];
+    totalMM: number;
+}
+
 export const MockupAllocation = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [projects, setProjects] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedMonth, setSelectedMonth] = useState(10); // Default October
+    const [viewBy, setViewBy] = useState<'person' | 'project'>('person');
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
     // Mock Allocation Logic: Assign projects randomly for demo
     const [allocationMap, setAllocationMap] = useState<AllocationData[]>([]);
@@ -889,24 +904,112 @@ export const MockupAllocation = () => {
         }
     }, [employees, projects, selectedMonth]);
 
+    // Available count logic: Exclude 'CSG' dept, but include all others (Regular/Freelance)
+    const totalAvailableEmployees = useMemo(() => {
+        return employees.filter(e => !e.isArchived && e.dept !== 'CSG').length;
+    }, [employees]);
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    // --- Person View Data ---
     const filteredAllocations = useMemo(() => {
-        return allocationMap.filter(a => 
+        let list = allocationMap.filter(a => 
             a.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
             a.dept.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [allocationMap, searchTerm]);
+
+        if (sortConfig) {
+            list.sort((a, b) => {
+                let valA: any = a[sortConfig.key as keyof typeof a];
+                let valB: any = b[sortConfig.key as keyof typeof b];
+
+                if (sortConfig.key === 'utilization') {
+                    valA = a.assignments.reduce((sum, i) => sum + i.mm, 0);
+                    valB = b.assignments.reduce((sum, i) => sum + i.mm, 0);
+                }
+
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return list;
+    }, [allocationMap, searchTerm, sortConfig]);
+
+    // --- Project View Data Transformation ---
+    const projectViewData = useMemo(() => {
+        if (!projects.length || !allocationMap.length) return [];
+        
+        const projMap = new Map<string, ProjectViewData>();
+        
+        // Initialize from Projects DB
+        projects.forEach(p => {
+            projMap.set(p.code, {
+                projectId: p.code,
+                projectName: p.name,
+                client: p.client,
+                assignedMembers: [],
+                totalMM: 0
+            });
+        });
+
+        // Aggregate Allocations
+        allocationMap.forEach(emp => {
+            emp.assignments.forEach(assign => {
+                const proj = projMap.get(assign.projectId);
+                if (proj) {
+                    proj.assignedMembers.push({
+                        name: emp.name,
+                        rank: emp.rank,
+                        dept: emp.dept,
+                        mm: assign.mm
+                    });
+                    proj.totalMM += assign.mm;
+                }
+            });
+        });
+
+        let list = Array.from(projMap.values()).filter(p => p.totalMM > 0); // Only active projects
+
+        if (searchTerm) {
+            list = list.filter(p => p.projectName.toLowerCase().includes(searchTerm.toLowerCase()));
+        }
+
+        if (sortConfig) {
+            list.sort((a, b) => {
+                let valA: any = a[sortConfig.key as keyof typeof a];
+                let valB: any = b[sortConfig.key as keyof typeof b];
+                
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return list;
+    }, [projects, allocationMap, searchTerm, sortConfig]);
 
     const totalMM = filteredAllocations.reduce((acc, curr) => acc + curr.assignments.reduce((sum, a) => sum + a.mm, 0), 0);
-    const totalEmployees = filteredAllocations.length;
     const idleEmployees = filteredAllocations.filter(a => a.assignments.reduce((sum, i) => sum + i.mm, 0) < 1.0).length;
     const overloadedEmployees = filteredAllocations.filter(a => a.assignments.reduce((sum, i) => sum + i.mm, 0) > 1.0).length;
-    const avgUtilization = totalEmployees > 0 ? ((totalMM / totalEmployees) * 100).toFixed(1) : "0.0";
+    const avgUtilization = totalAvailableEmployees > 0 ? ((totalMM / totalAvailableEmployees) * 100).toFixed(1) : "0.0";
 
     const getUtilizationColor = (mm: number) => {
-        if (mm > 1.0) return "bg-red-100 text-red-600 border-red-200";
-        if (mm === 1.0) return "bg-green-100 text-green-600 border-green-200";
+        if (mm > 1.0) return "bg-red-50 text-red-600 border-red-200 ring-2 ring-red-500/20";
+        if (mm === 1.0) return "bg-green-50 text-green-600 border-green-200";
         if (mm >= 0.5) return "bg-yellow-50 text-yellow-600 border-yellow-200";
-        return "bg-slate-100 text-slate-500 border-slate-200";
+        return "bg-slate-50 text-slate-400 border-slate-200";
+    };
+
+    const SortIcon = ({ column }: { column: string }) => {
+        if (sortConfig?.key !== column) return <ArrowUpDown size={12} className="ml-1 text-slate-300 opacity-50 group-hover:opacity-100 transition-opacity" />;
+        return sortConfig.direction === 'asc' ? <ArrowUp size={12} className="ml-1 text-orange-500" /> : <ArrowDown size={12} className="ml-1 text-orange-500" />;
     };
 
     return (
@@ -930,8 +1033,8 @@ export const MockupAllocation = () => {
 
             <div className="p-6 pb-2 shrink-0 grid grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                    <div className="text-xs font-bold text-slate-500">총 가용 인원</div>
-                    <div className="text-2xl font-black text-slate-800">{totalEmployees}명</div>
+                    <div className="text-xs font-bold text-slate-500">총 가용 인원 (공통비 제외)</div>
+                    <div className="text-2xl font-black text-slate-800">{totalAvailableEmployees}명</div>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
                     <div className="text-xs font-bold text-slate-500">총 투입 M/M (가동률)</div>
@@ -952,72 +1055,137 @@ export const MockupAllocation = () => {
 
             <div className="p-6 pt-2 flex-1 overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center space-x-2 text-sm font-bold text-slate-700">
-                        <Filter size={16} className="text-slate-400"/>
-                        <span>상세 배정 내역</span>
+                    <div className="flex items-center space-x-2 text-sm font-bold text-slate-700 bg-slate-100 p-1 rounded-lg">
+                        <button onClick={() => setViewBy('person')} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded transition-all ${viewBy === 'person' ? 'bg-white shadow text-orange-600' : 'text-slate-500 hover:text-slate-800'}`}>
+                            <Users size={14}/><span>인원별 보기</span>
+                        </button>
+                        <button onClick={() => setViewBy('project')} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded transition-all ${viewBy === 'project' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}>
+                            <Briefcase size={14}/><span>프로젝트별 보기</span>
+                        </button>
                     </div>
                     <div className="relative">
                         <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-orange-500 w-64 shadow-sm" placeholder="이름, 부서 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-orange-500 w-64 shadow-sm" placeholder={viewBy === 'person' ? "이름, 부서 검색..." : "프로젝트명 검색..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex-1 overflow-auto">
-                    <table className="w-full text-sm text-left border-collapse">
-                        <thead className="bg-slate-50 text-slate-500 font-bold border-b border-gray-200 sticky top-0 z-10">
-                            <tr>
-                                <th className="px-6 py-4">성명 / 직급</th>
-                                <th className="px-6 py-4">소속 부서</th>
-                                <th className="px-6 py-4 text-center w-32">가동률 (Total)</th>
-                                <th className="px-6 py-4 w-[50%]">프로젝트 배정 현황 (Projects)</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 font-sans">
-                            {filteredAllocations.map(alloc => {
-                                const totalUtilization = alloc.assignments.reduce((sum, a) => sum + a.mm, 0);
-                                const utilColor = getUtilizationColor(totalUtilization);
-                                
-                                return (
-                                    <tr key={alloc.employeeId} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-slate-800">
-                                            {alloc.name} <span className="text-xs text-slate-400 font-normal ml-1">{alloc.rank}</span>
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex-1 overflow-auto relative">
+                    {viewBy === 'person' ? (
+                        <table className="w-full text-sm text-left border-collapse">
+                            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-gray-200 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('name')}>
+                                        <div className="flex items-center">성명 / 직급 <SortIcon column="name"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('dept')}>
+                                        <div className="flex items-center">소속 부서 <SortIcon column="dept"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 text-center w-32 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('utilization')}>
+                                        <div className="flex items-center justify-center">가동률 (Total) <SortIcon column="utilization"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 w-[50%]">프로젝트 배정 현황 (Projects)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 font-sans">
+                                {filteredAllocations.map(alloc => {
+                                    const totalUtilization = alloc.assignments.reduce((sum, a) => sum + a.mm, 0);
+                                    const utilColor = getUtilizationColor(totalUtilization);
+                                    const isOverloaded = totalUtilization > 1.0;
+                                    
+                                    return (
+                                        <tr key={alloc.employeeId} className="hover:bg-slate-50 transition-colors group">
+                                            <td className="px-6 py-4 font-bold text-slate-800">
+                                                {alloc.name} <span className="text-xs text-slate-400 font-normal ml-1">{alloc.rank}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">{alloc.dept}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="relative inline-block group/tooltip">
+                                                    <span className={`px-2 py-1 rounded-md font-black text-xs border flex items-center justify-center space-x-1 ${utilColor}`}>
+                                                        {isOverloaded && <AlertTriangle size={10} className="mr-1 animate-pulse"/>}
+                                                        <span>{(totalUtilization * 100).toFixed(0)}%</span>
+                                                    </span>
+                                                    {isOverloaded && (
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-red-600 text-white text-[10px] px-2 py-1 rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+                                                            초과 투입 주의 ({(totalUtilization * 100).toFixed(0)}%)
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {alloc.assignments.length > 0 ? (
+                                                    <div className="space-y-2">
+                                                        {alloc.assignments.map((assign, i) => (
+                                                            <div key={i} className="flex items-center text-xs">
+                                                                <div className="w-16 font-bold text-slate-500 text-right mr-3">{(assign.mm * 100).toFixed(0)}%</div>
+                                                                <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden relative">
+                                                                    <div 
+                                                                        className={`h-full rounded-full ${isOverloaded ? 'bg-red-400' : 'bg-blue-500'}`}
+                                                                        style={{width: `${Math.min(assign.mm * 100, 100)}%`}}
+                                                                    ></div>
+                                                                </div>
+                                                                <div className="ml-3 font-medium text-slate-700 w-48 truncate flex items-center" title={assign.projectName}>
+                                                                    {assign.projectName}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs text-slate-400 italic">배정된 프로젝트 없음 (Idle)</div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {filteredAllocations.length === 0 && (
+                                    <tr><td colSpan={4} className="text-center py-20 text-gray-400">데이터가 없습니다.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <table className="w-full text-sm text-left border-collapse">
+                            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-gray-200 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('projectName')}>
+                                        <div className="flex items-center">프로젝트명 <SortIcon column="projectName"/></div>
+                                    </th>
+                                    <th className="px-6 py-4">고객사</th>
+                                    <th className="px-6 py-4 text-center cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('totalMM')}>
+                                        <div className="flex items-center justify-center">총 투입 M/M <SortIcon column="totalMM"/></div>
+                                    </th>
+                                    <th className="px-6 py-4">투입 인원 (Members)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 font-sans">
+                                {projectViewData.map((proj) => (
+                                    <tr key={proj.projectId} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-slate-800">{proj.projectName}</div>
+                                            <div className="text-[10px] text-slate-400 font-mono">{proj.projectId}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-600">{alloc.dept}</td>
+                                        <td className="px-6 py-4 text-slate-600 text-xs font-bold">{proj.client}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className={`px-2 py-1 rounded-md font-black text-xs border ${utilColor}`}>
-                                                {(totalUtilization * 100).toFixed(0)}%
-                                            </span>
+                                            <span className="font-black text-slate-800 text-base">{proj.totalMM.toFixed(1)}</span>
+                                            <span className="text-xs text-slate-400 ml-1">M/M</span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {alloc.assignments.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {alloc.assignments.map((assign, i) => (
-                                                        <div key={i} className="flex items-center text-xs">
-                                                            <div className="w-16 font-bold text-slate-500 text-right mr-3">{(assign.mm * 100).toFixed(0)}%</div>
-                                                            <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden relative">
-                                                                <div 
-                                                                    className="h-full bg-blue-500 rounded-full" 
-                                                                    style={{width: `${Math.min(assign.mm * 100, 100)}%`}}
-                                                                ></div>
-                                                            </div>
-                                                            <div className="ml-3 font-medium text-slate-700 w-48 truncate" title={assign.projectName}>
-                                                                {assign.projectName}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="text-xs text-slate-400 italic">배정된 프로젝트 없음 (Idle)</div>
-                                            )}
+                                            <div className="flex flex-wrap gap-2">
+                                                {proj.assignedMembers.map((mem, idx) => (
+                                                    <div key={idx} className="flex items-center bg-white border border-gray-200 rounded-full px-3 py-1 shadow-sm">
+                                                        <span className="font-bold text-xs text-slate-700 mr-1.5">{mem.name}</span>
+                                                        <span className="text-[10px] text-slate-400 border-l border-gray-200 pl-1.5">{mem.dept}</span>
+                                                        <span className="ml-2 text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 rounded">{(mem.mm * 100).toFixed(0)}%</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </td>
                                     </tr>
-                                );
-                            })}
-                            {filteredAllocations.length === 0 && (
-                                <tr><td colSpan={4} className="text-center py-20 text-gray-400">데이터가 없습니다.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
+                                ))}
+                                {projectViewData.length === 0 && (
+                                    <tr><td colSpan={4} className="text-center py-20 text-gray-400">데이터가 없습니다.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
             </div>
         </div>
