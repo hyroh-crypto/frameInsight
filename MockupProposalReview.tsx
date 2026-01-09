@@ -17,6 +17,7 @@ interface Allocation {
 interface Feedback {
     id: number;
     user: string;
+    dept: string; // Added department field
     content: string;
     date: string;
     role: string;
@@ -55,8 +56,8 @@ export const MockupProposalReview = () => {
                 { id: 2, type: 'external', personId: "", externalName: "(주)디자인에이전시", mm: 0, cost: 15000000 }
             ],
             feedbacks: [
-                { id: 1, user: "김철수", role: "수석", content: "예산 대비 내부 투입 인력 M/M가 다소 높게 잡힌 것 같습니다. 0.3으로 조정 가능할까요?", date: "2024-10-25 10:30" },
-                { id: 2, user: "박지민", role: "선임", content: "RFP 24페이지 기술 요건 확인 부탁드립니다. AI 모듈 제안이 필수인지 모호합니다.", date: "2024-10-25 11:15" }
+                { id: 1, user: "김철수", dept: "DX 사업본부", role: "수석", content: "예산 대비 내부 투입 인력 M/M가 다소 높게 잡힌 것 같습니다. 0.3으로 조정 가능할까요?", date: "2024-10-25 10:30" },
+                { id: 2, user: "박지민", dept: "플랫폼 개발팀", role: "선임", content: "RFP 24페이지 기술 요건 확인 부탁드립니다. AI 모듈 제안이 필수인지 모호합니다.", date: "2024-10-25 11:15" }
             ],
             isArchived: false
         }
@@ -188,6 +189,7 @@ export const MockupProposalReview = () => {
         const feedback: Feedback = { 
             id: Date.now(), 
             user: "나제안", 
+            dept: "공공사업 1팀", // Mock Dept for current user
             role: "책임",
             content: newComment, 
             date: new Date().toISOString().slice(0, 16).replace('T', ' ') 
@@ -369,6 +371,7 @@ export const MockupProposalReview = () => {
                                             <div className="flex-1">
                                                 <div className="flex items-baseline space-x-2 mb-1">
                                                     <span className="text-xs font-bold text-slate-800">{fb.user}</span>
+                                                    <span className="text-[10px] text-slate-500">{fb.dept}</span>
                                                     <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 rounded">{fb.role}</span>
                                                     <span className="text-[10px] text-slate-300 ml-auto">{fb.date}</span>
                                                 </div>
