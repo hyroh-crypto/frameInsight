@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, FileText, Calendar, DollarSign, Users, Trash2, Archive, Paperclip, Send, Plus, X, Info, RotateCcw, UserCircle, Globe, Download, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, FileText, Calendar, DollarSign, Users, Trash2, Archive, Paperclip, Send, Plus, X, Info, RotateCcw, UserCircle, Globe, Download, AlertTriangle, CheckCircle2, GripVertical } from 'lucide-react';
 import { formatNumber } from './utils';
 import { StorageService } from './persistence';
 import { PersonSelector } from './PersonSelector';
@@ -51,7 +51,7 @@ export const MockupProposalReview = () => {
             execDept: "플랫폼 개발팀",
             rfpFiles: ["HMC_SCM_RFP_v1.0.pdf", "요구사항정의서_초안.xlsx"],
             allocations: [
-                { id: 1, type: 'internal', personId: "EMP-2020-045", externalName: "", mm: 0.5, cost: 2750000 },
+                { id: 1, type: 'internal', personId: "EMP-2020-045", externalName: "", mm: 0.5, cost: 0 }, // Cost will be recalculated on load if needed or kept as snapshot
                 { id: 2, type: 'external', personId: "", externalName: "(주)디자인에이전시", mm: 0, cost: 15000000 }
             ],
             feedbacks: [
@@ -65,6 +65,7 @@ export const MockupProposalReview = () => {
     const [selectedId, setSelectedId] = useState<number>(1);
     const [filterArchived, setFilterArchived] = useState(false);
     const [newComment, setNewComment] = useState("");
+    const [draggedAllocIndex, setDraggedAllocIndex] = useState<number | null>(null);
 
     useEffect(() => {
         const loadEmployees = async () => {
@@ -74,7 +75,51 @@ export const MockupProposalReview = () => {
         loadEmployees();
     }, []);
 
+    // Recalculate initial costs for internal staff if they are 0 (optional, ensures consistency)
+    useEffect(() => {
+        if (employees.length > 0 && proposals.length > 0) {
+             const updatedProposals = proposals.map(p => {
+                 const newAllocations = p.allocations.map(a => {
+                     if (a.type === 'internal' && a.personId && a.cost === 0) {
+                         const person = employees.find(e => e.id === a.personId);
+                         if (person) {
+                             return { ...a, cost: Math.round(calculateMonthlyCost(person) * a.mm) };
+                         }
+                     }
+                     return a;
+                 });
+                 return { ...p, allocations: newAllocations };
+             });
+             // Only update if changes detected to avoid loop (simplified here by just not setting if identical in real app)
+             // For mockup, we can skip auto-update loop or handle carefully. 
+             // We'll trust user action triggers updates mainly.
+        }
+    }, [employees]);
+
     const selected = proposals.find(p => p.id === selectedId) || proposals[0];
+
+    const calculateMonthlyCost = (person: any) => {
+        if (!person) return 0;
+        const currentYear = new Date().getFullYear().toString();
+        const COMMON_COST = 850000;
+        
+        let monthlyBase = 0;
+        if (person.type === '정규직') {
+            const salaries = person.salaries || {};
+            const years = Object.keys(salaries).sort();
+            const annualSal = salaries[years[years.length - 1]] || 0;
+            monthlyBase = annualSal / 12;
+            const insurance = monthlyBase * 0.12;
+            const severance = monthlyBase * 0.083333;
+            return Math.round((monthlyBase + insurance + severance + COMMON_COST) * 1.05);
+        } else {
+            const contracts = person.contracts || [];
+            const currentContract = contracts.length > 0 ? contracts[contracts.length - 1] : undefined;
+            monthlyBase = currentContract ? currentContract.monthlyAmount : 0;
+            const insurance = monthlyBase * 0.05;
+            return Math.round((monthlyBase + insurance + COMMON_COST) * 1.05);
+        }
+    };
 
     const handleUpdateProposal = (id: number, field: keyof Proposal, value: any) => {
         setProposals(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
@@ -88,12 +133,20 @@ export const MockupProposalReview = () => {
     const updateAllocation = (id: number, allocId: number, field: keyof Allocation, value: any) => {
         const updatedAllocations = selected.allocations.map(a => {
             if (a.id !== allocId) return a;
+            
             const updated = { ...a, [field]: value };
+            
+            // Recalculate cost if person or mm changes for internal staff
             if (updated.type === 'internal') {
-                const person = employees.find(e => e.id === updated.personId);
-                if (person) {
-                    const baseCost = person.type === '정규직' ? 5500000 : 8000000;
-                    updated.cost = Math.round(baseCost * updated.mm);
+                if (field === 'personId' || field === 'mm') {
+                    const pid = field === 'personId' ? value : updated.personId;
+                    const mm = field === 'mm' ? value : updated.mm;
+                    
+                    const person = employees.find(e => e.id === pid);
+                    if (person) {
+                        const monthlyCost = calculateMonthlyCost(person);
+                        updated.cost = Math.round(monthlyCost * mm);
+                    }
                 }
             }
             return updated;
@@ -103,6 +156,26 @@ export const MockupProposalReview = () => {
 
     const removeAllocation = (id: number, allocId: number) => {
         handleUpdateProposal(id, 'allocations', selected.allocations.filter(a => a.id !== allocId));
+    };
+
+    // --- Drag & Drop Handlers ---
+    const onDragStartAlloc = (e: React.DragEvent, index: number) => {
+        setDraggedAllocIndex(index);
+        e.dataTransfer.effectAllowed = "move";
+        // Optional: Hide default drag image or styling
+    };
+
+    const onDragOverAlloc = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (draggedAllocIndex === null || draggedAllocIndex === index) return;
+        
+        const newAllocations = [...selected.allocations];
+        const draggedItem = newAllocations[draggedAllocIndex];
+        newAllocations.splice(draggedAllocIndex, 1);
+        newAllocations.splice(index, 0, draggedItem);
+        
+        handleUpdateProposal(selected.id, 'allocations', newAllocations);
+        setDraggedAllocIndex(index);
     };
 
     const handleArchive = (id: number, archive: boolean) => {
@@ -210,10 +283,21 @@ export const MockupProposalReview = () => {
                                 </div>
                                 
                                 <div className="p-5 space-y-3 max-h-[400px] overflow-y-auto">
-                                    {selected.allocations.map(alloc => (
-                                        <div key={alloc.id} className={`p-3 rounded-xl border relative animate-fadeIn ${alloc.type === 'internal' ? 'bg-slate-50 border-slate-100' : 'bg-orange-50/20 border-orange-100'}`}>
+                                    {selected.allocations.map((alloc, idx) => (
+                                        <div 
+                                            key={alloc.id} 
+                                            className={`p-3 rounded-xl border relative animate-fadeIn group ${alloc.type === 'internal' ? 'bg-slate-50 border-slate-100' : 'bg-orange-50/20 border-orange-100'}`}
+                                            draggable
+                                            onDragStart={(e) => onDragStartAlloc(e, idx)}
+                                            onDragOver={(e) => onDragOverAlloc(e, idx)}
+                                        >
                                             <div className="flex justify-between items-center mb-2">
-                                                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${alloc.type === 'internal' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>{alloc.type === 'internal' ? 'Internal Staff' : 'Outsourcing'}</span>
+                                                <div className="flex items-center">
+                                                    <div className="cursor-move mr-2 text-slate-300 hover:text-slate-500">
+                                                        <GripVertical size={14} />
+                                                    </div>
+                                                    <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${alloc.type === 'internal' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>{alloc.type === 'internal' ? 'Internal Staff' : 'Outsourcing'}</span>
+                                                </div>
                                                 <button onClick={() => removeAllocation(selected.id, alloc.id)} className="text-slate-300 hover:text-red-500"><X size={14} /></button>
                                             </div>
                                             
