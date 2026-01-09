@@ -1,0 +1,71 @@
+
+[1. MySQL Database Schema]
+-----------------------------------------------------------
+CREATE DATABASE frameinsight_db;
+USE frameinsight_db;
+
+-- 프로젝트 테이블
+CREATE TABLE projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(20),
+    name VARCHAR(100),
+    client VARCHAR(50),
+    period VARCHAR(50),
+    amt BIGINT,
+    exec_amt BIGINT,
+    status VARCHAR(20),
+    sales_dept VARCHAR(50),
+    sales_rate INT,
+    exec_dept VARCHAR(50),
+    exec_rate INT,
+    is_archived BOOLEAN DEFAULT FALSE
+);
+
+-- 직원 테이블
+CREATE TABLE employees (
+    id VARCHAR(20) PRIMARY KEY,
+    name VARCHAR(50),
+    dept VARCHAR(50),
+    rank VARCHAR(20),
+    hire_year VARCHAR(4),
+    type VARCHAR(20),
+    salary BIGINT
+);
+
+-- 비용 테이블
+CREATE TABLE costs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    date DATE,
+    month INT,
+    pj VARCHAR(100),
+    type VARCHAR(50),
+    vendor VARCHAR(100),
+    description TEXT,
+    amt BIGINT
+);
+
+
+[2. PHP API Sample (projects.php)]
+-----------------------------------------------------------
+<?php
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, POST");
+
+$conn = new mysqli("your-rds-endpoint", "admin", "password", "frameinsight_db");
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $result = $conn->query("SELECT * FROM projects WHERE is_archived = FALSE");
+    $projects = [];
+    while($row = $result->fetch_assoc()) {
+        $projects[] = $row;
+    }
+    echo json_encode($projects);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    // Insert/Update logic here...
+    echo json_encode(["status" => "success"]);
+}
+?>
