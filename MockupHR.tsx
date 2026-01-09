@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { UserPlus, Save, UserCheck, ChevronLeft, Search, Users, Plus, Archive, UserX, FileSpreadsheet, HelpCircle, Calendar, AlertCircle, RotateCcw, UserMinus, ArrowUpDown, ArrowUp, ArrowDown, X, Mail } from 'lucide-react';
+import { UserPlus, Save, UserCheck, ChevronLeft, Search, Users, Plus, Archive, UserX, FileSpreadsheet, HelpCircle, Calendar, AlertCircle, RotateCcw, UserMinus, ArrowUpDown, ArrowUp, ArrowDown, X, Mail, BarChart3, AlertTriangle, CheckCircle2, Filter } from 'lucide-react';
 import { formatNumber } from './utils';
 import { StorageService } from './persistence';
 
@@ -26,6 +26,7 @@ interface Employee {
   isArchived?: boolean; 
 }
 
+// --- S005: Employee Management ---
 export const MockupForm = () => {
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -93,8 +94,6 @@ export const MockupForm = () => {
     
     if (emp.type === '정규직') {
         const salaries = emp.salaries || {};
-        // If specificYear is provided (list view sorting/display), try to find closest valid year or max year
-        // For form view, use activeSalaryYear
         let annualSal = 0;
         if (specificYear) {
              const years = Object.keys(salaries).sort();
@@ -249,19 +248,16 @@ export const MockupForm = () => {
   const processedEmployees = useMemo(() => {
     let list = employees.filter(e => filterStatus === 'active' ? !e.isArchived : e.isArchived);
     
-    // Search Filter
     if (searchTerm.trim()) {
        const lowerTerm = searchTerm.toLowerCase();
        list = list.filter(e => e.name.toLowerCase().includes(lowerTerm) || e.dept.toLowerCase().includes(lowerTerm) || e.rank.toLowerCase().includes(lowerTerm));
     }
 
-    // Sort Logic
     if (sortConfig) {
         list.sort((a, b) => {
             let valA: any = a[sortConfig.key as keyof Employee];
             let valB: any = b[sortConfig.key as keyof Employee];
 
-            // Custom handling for calculated values
             if (sortConfig.key === 'salary') {
                 valA = getDisplayAmount(a);
                 valB = getDisplayAmount(b);
@@ -291,7 +287,6 @@ export const MockupForm = () => {
       return sortConfig.direction === 'asc' ? <ArrowUp size={12} className="ml-1 text-orange-500" /> : <ArrowDown size={12} className="ml-1 text-orange-500" />;
   };
 
-  // --- Handlers for Form Data ---
   const handleAddYear = () => {
       const salaries = formData.salaries || {};
       const years = Object.keys(salaries).map(Number);
@@ -329,7 +324,6 @@ export const MockupForm = () => {
   if (viewMode === 'list') {
     return (
       <div className="h-full flex flex-col bg-slate-50 p-6 animate-fadeIn font-sans">
-        {/* Toast */}
         {showToast && (
           <div className="absolute top-4 right-4 z-[100] animate-bounceIn bg-slate-900 text-white px-4 py-3 rounded-lg shadow-2xl flex items-center space-x-3 border border-slate-700">
             <UserCheck className="text-green-400" size={20} />
@@ -406,7 +400,6 @@ export const MockupForm = () => {
                                         <HelpCircle size={14}/>
                                     </button>
                                     
-                                    {/* Cost Calculation Tooltip */}
                                     {showCostHelp && (
                                         <div ref={tooltipRef} className="absolute top-full right-0 mt-2 w-96 bg-slate-800 text-slate-100 p-5 rounded-xl shadow-2xl border border-slate-700 z-[100] cursor-default text-left animate-fadeIn">
                                             <div className="flex justify-between items-start mb-3">
@@ -425,7 +418,6 @@ export const MockupForm = () => {
                                                     <p className="mt-1 text-slate-400">× 1.05 (Risk Buffer)</p>
                                                 </div>
                                             </div>
-                                            {/* Arrow */}
                                             <div className="absolute -top-1.5 right-12 w-3 h-3 bg-slate-800 rotate-45 border-t border-l border-slate-700"></div>
                                         </div>
                                     )}
@@ -436,7 +428,7 @@ export const MockupForm = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-sans">
                         {processedEmployees.map((emp) => {
-                            const cost = calculateEmployeeCost(emp, 'sort'); // Use 'sort' logic/latest
+                            const cost = calculateEmployeeCost(emp, 'sort'); 
                             const displayAmt = getDisplayAmount(emp);
                             const isReg = emp.type === '정규직';
                             return (
@@ -495,7 +487,7 @@ export const MockupForm = () => {
     );
   }
 
-  // Form View
+  // Form View Code (Same as before)
   const isRegular = formData.type === '정규직';
   const calculatedCost = calculateEmployeeCost(formData);
 
@@ -641,7 +633,6 @@ export const MockupForm = () => {
                                 <span className={`text-sm font-bold ${isRegular ? 'text-slate-800' : 'text-gray-500'}`}>정규직</span>
                                 <input type="radio" className="hidden" checked={isRegular} onChange={() => {
                                     setFormData({...formData, type: '정규직'});
-                                    // Reset domain to default when switching to Regular
                                     setEmailLocal(prev => ({ ...prev, domain: DEFAULT_DOMAIN }));
                                 }} />
                             </label>
@@ -651,7 +642,6 @@ export const MockupForm = () => {
                                 </div>
                                 <span className={`text-sm font-bold ${!isRegular ? 'text-slate-800' : 'text-gray-500'}`}>프리랜서</span>
                                 <input type="radio" className="hidden" checked={!isRegular} onChange={() => {
-                                    // Initialize contract if none
                                     let contracts = formData.contracts || [];
                                     if(contracts.length === 0) {
                                         contracts = [{ id: Date.now(), seq: 1, startDate: `${currentYear}-01-01`, endDate: `${currentYear}-12-31`, monthlyAmount: 0 }];
@@ -818,9 +808,218 @@ export const MockupForm = () => {
   );
 };
 
+// --- S006: Allocation Status ---
+interface AllocationData {
+    employeeId: string;
+    name: string;
+    dept: string;
+    rank: string;
+    assignments: {
+        projectId: string;
+        projectName: string;
+        mm: number;
+    }[];
+}
+
 export const MockupAllocation = () => {
-    // ... existing implementation ...
-    // Keeping this component as is since the user request focused on S005 Employee Management (MockupForm)
-    // But need to return something to avoid errors if this file is overwritten
-    return <div>Allocation View Placeholder (Not Modified)</div>;
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [projects, setProjects] = useState<any[]>([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedMonth, setSelectedMonth] = useState(10); // Default October
+
+    // Mock Allocation Logic: Assign projects randomly for demo
+    const [allocationMap, setAllocationMap] = useState<AllocationData[]>([]);
+
+    useEffect(() => {
+        const loadData = async () => {
+            const empData = await StorageService.getEmployees();
+            const projData = await StorageService.getProjects();
+            setEmployees(empData || []);
+            setProjects(projData || []);
+        };
+        loadData();
+    }, []);
+
+    useEffect(() => {
+        if (employees.length > 0 && projects.length > 0) {
+            // Generate mock allocations based on existing data
+            const allocations: AllocationData[] = employees.filter(e => !e.isArchived).map((emp, index) => {
+                const assignments = [];
+                let usedMM = 0;
+                
+                // Simulate some logic: Senior people are busy
+                if (emp.rank === '수석' || emp.rank === '책임' || emp.rank === '선임') {
+                    // Assign to 1-2 projects
+                    const proj1 = projects[index % projects.length];
+                    const mm1 = 0.5 + (Math.random() > 0.5 ? 0.5 : 0);
+                    assignments.push({ projectId: proj1.code, projectName: proj1.name, mm: mm1 });
+                    usedMM += mm1;
+
+                    if (usedMM < 1.0 && Math.random() > 0.3) {
+                        const proj2 = projects[(index + 1) % projects.length];
+                        const mm2 = 1.0 - usedMM;
+                        assignments.push({ projectId: proj2.code, projectName: proj2.name, mm: parseFloat(mm2.toFixed(1)) });
+                        usedMM += mm2;
+                    }
+                } else {
+                    // Juniors often 100% on one or idle
+                    if (Math.random() > 0.2) {
+                        const proj = projects[index % projects.length];
+                        assignments.push({ projectId: proj.code, projectName: proj.name, mm: 1.0 });
+                        usedMM = 1.0;
+                    }
+                }
+
+                // Random overload for demo
+                if (Math.random() > 0.9) {
+                     const proj = projects[(index + 2) % projects.length];
+                     assignments.push({ projectId: proj.code, projectName: proj.name, mm: 0.2 });
+                     usedMM += 0.2;
+                }
+
+                return {
+                    employeeId: emp.id,
+                    name: emp.name,
+                    dept: emp.dept,
+                    rank: emp.rank,
+                    assignments
+                };
+            });
+            setAllocationMap(allocations);
+        }
+    }, [employees, projects, selectedMonth]);
+
+    const filteredAllocations = useMemo(() => {
+        return allocationMap.filter(a => 
+            a.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            a.dept.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [allocationMap, searchTerm]);
+
+    const totalMM = filteredAllocations.reduce((acc, curr) => acc + curr.assignments.reduce((sum, a) => sum + a.mm, 0), 0);
+    const totalEmployees = filteredAllocations.length;
+    const idleEmployees = filteredAllocations.filter(a => a.assignments.reduce((sum, i) => sum + i.mm, 0) < 1.0).length;
+    const overloadedEmployees = filteredAllocations.filter(a => a.assignments.reduce((sum, i) => sum + i.mm, 0) > 1.0).length;
+    const avgUtilization = totalEmployees > 0 ? ((totalMM / totalEmployees) * 100).toFixed(1) : "0.0";
+
+    const getUtilizationColor = (mm: number) => {
+        if (mm > 1.0) return "bg-red-100 text-red-600 border-red-200";
+        if (mm === 1.0) return "bg-green-100 text-green-600 border-green-200";
+        if (mm >= 0.5) return "bg-yellow-50 text-yellow-600 border-yellow-200";
+        return "bg-slate-100 text-slate-500 border-slate-200";
+    };
+
+    return (
+        <div className="h-full flex flex-col bg-slate-50 animate-fadeIn font-sans">
+            <div className="p-4 border-b border-gray-200 bg-white flex justify-between items-center shadow-sm sticky top-0 z-20">
+                <div className="flex items-center space-x-2"><BarChart3 className="text-orange-500" size={24} /><h2 className="text-xl font-bold text-slate-800 tracking-tight">인력 배정 현황 (Allocation)</h2></div>
+                <div className="flex items-center space-x-4">
+                    <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg">
+                        {[9, 10, 11, 12].map(m => (
+                            <button 
+                                key={m} 
+                                onClick={() => setSelectedMonth(m)}
+                                className={`px-3 py-1 text-xs font-bold rounded transition-all ${selectedMonth === m ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                {m}월
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-6 pb-2 shrink-0 grid grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="text-xs font-bold text-slate-500">총 가용 인원</div>
+                    <div className="text-2xl font-black text-slate-800">{totalEmployees}명</div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="text-xs font-bold text-slate-500">총 투입 M/M (가동률)</div>
+                    <div className="flex items-baseline space-x-2">
+                        <div className="text-2xl font-black text-slate-800">{totalMM.toFixed(1)}</div>
+                        <div className={`text-xs font-bold ${parseFloat(avgUtilization) >= 90 ? 'text-green-600' : 'text-orange-600'}`}>{avgUtilization}%</div>
+                    </div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="text-xs font-bold text-slate-500 flex items-center"><AlertTriangle size={12} className="mr-1 text-yellow-500"/> 유휴 인력 (Idle)</div>
+                    <div className="text-2xl font-black text-yellow-600">{idleEmployees}명</div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="text-xs font-bold text-slate-500 flex items-center"><AlertTriangle size={12} className="mr-1 text-red-500"/> 초과 투입 (Over)</div>
+                    <div className="text-2xl font-black text-red-600">{overloadedEmployees}명</div>
+                </div>
+            </div>
+
+            <div className="p-6 pt-2 flex-1 overflow-hidden flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center space-x-2 text-sm font-bold text-slate-700">
+                        <Filter size={16} className="text-slate-400"/>
+                        <span>상세 배정 내역</span>
+                    </div>
+                    <div className="relative">
+                        <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        <input className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-orange-500 w-64 shadow-sm" placeholder="이름, 부서 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    </div>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex-1 overflow-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                        <thead className="bg-slate-50 text-slate-500 font-bold border-b border-gray-200 sticky top-0 z-10">
+                            <tr>
+                                <th className="px-6 py-4">성명 / 직급</th>
+                                <th className="px-6 py-4">소속 부서</th>
+                                <th className="px-6 py-4 text-center w-32">가동률 (Total)</th>
+                                <th className="px-6 py-4 w-[50%]">프로젝트 배정 현황 (Projects)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 font-sans">
+                            {filteredAllocations.map(alloc => {
+                                const totalUtilization = alloc.assignments.reduce((sum, a) => sum + a.mm, 0);
+                                const utilColor = getUtilizationColor(totalUtilization);
+                                
+                                return (
+                                    <tr key={alloc.employeeId} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-slate-800">
+                                            {alloc.name} <span className="text-xs text-slate-400 font-normal ml-1">{alloc.rank}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">{alloc.dept}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-2 py-1 rounded-md font-black text-xs border ${utilColor}`}>
+                                                {(totalUtilization * 100).toFixed(0)}%
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {alloc.assignments.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {alloc.assignments.map((assign, i) => (
+                                                        <div key={i} className="flex items-center text-xs">
+                                                            <div className="w-16 font-bold text-slate-500 text-right mr-3">{(assign.mm * 100).toFixed(0)}%</div>
+                                                            <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden relative">
+                                                                <div 
+                                                                    className="h-full bg-blue-500 rounded-full" 
+                                                                    style={{width: `${Math.min(assign.mm * 100, 100)}%`}}
+                                                                ></div>
+                                                            </div>
+                                                            <div className="ml-3 font-medium text-slate-700 w-48 truncate" title={assign.projectName}>
+                                                                {assign.projectName}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-xs text-slate-400 italic">배정된 프로젝트 없음 (Idle)</div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {filteredAllocations.length === 0 && (
+                                <tr><td colSpan={4} className="text-center py-20 text-gray-400">데이터가 없습니다.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
 };
