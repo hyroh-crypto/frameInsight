@@ -41,7 +41,7 @@ export const MockupProfile = () => {
             <div className="p-4 border-b border-gray-200 bg-white flex justify-between items-center shadow-sm sticky top-0 z-10">
                 <div className="flex items-center space-x-2">
                     <ShieldCheck size={20} className="text-orange-500" />
-                    <h2 className="text-lg font-bold text-slate-800">내 정보 및 보안 관리</h2>
+                    <h2 className="text-lg font-bold text-slate-800">내 정보 및 보안 관리 (Personal Info & Security)</h2>
                 </div>
             </div>
 
@@ -95,7 +95,7 @@ export const MockupProfile = () => {
                             <AlertCircle size={16} className="text-orange-500 mt-0.5 shrink-0" />
                             <p className="text-[11px] text-orange-800 font-bold leading-relaxed">
                                 인적 사항 변경은 관리자(HR) 부서에 별도로 요청해 주시기 바랍니다.<br/>
-                                보안 준수 사항에 따라 급여 및 계약 정보는 본 화면에 노출되지 않습니다.
+                                <span className="underline decoration-orange-300 decoration-2 underline-offset-2">보안 준수 사항에 따라 급여 및 계약 정보는 본 화면에 절대 노출되지 않습니다.</span>
                             </p>
                         </div>
                     </div>

@@ -1030,6 +1030,11 @@ export const MockupAllocation = () => {
                 let valA: any = a[sortConfig.key as keyof typeof a];
                 let valB: any = b[sortConfig.key as keyof typeof b];
                 
+                if (sortConfig.key === 'client') {
+                    valA = a.client;
+                    valB = b.client;
+                }
+
                 if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
                 if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
@@ -1224,8 +1229,10 @@ export const MockupAllocation = () => {
                                     <th className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('projectName')}>
                                         <div className="flex items-center">프로젝트명 <SortIcon column="projectName"/></div>
                                     </th>
-                                    <th className="px-6 py-4">고객사</th>
-                                    <th className="px-6 py-4 text-center cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('totalMM')}>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors group" onClick={() => handleSort('client')}>
+                                        <div className="flex items-center">고객사 <SortIcon column="client"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 text-center cursor-pointer hover:bg-slate-100 transition-colors group w-40 whitespace-nowrap" onClick={() => handleSort('totalMM')}>
                                         <div className="flex items-center justify-center">총 투입 M/M <SortIcon column="totalMM"/></div>
                                     </th>
                                     <th className="px-6 py-4">투입 인원 (Members)</th>
@@ -1243,8 +1250,8 @@ export const MockupAllocation = () => {
                                                 <div className="text-[10px] text-slate-400 font-mono">{proj.projectId}</div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-600 text-xs font-bold">{proj.client}</td>
-                                        <td className="px-6 py-4 text-center">
+                                        <td className="px-6 py-4 text-slate-600 text-xs font-bold whitespace-nowrap">{proj.client}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">
                                             <span className="font-black text-slate-800 text-base">{proj.totalMM.toFixed(1)}</span>
                                             <span className="text-xs text-slate-400 ml-1">M/M</span>
                                         </td>
