@@ -819,6 +819,7 @@ interface AllocationData {
     assignments: {
         projectId: string;
         projectName: string;
+        projectDept: string; // Used for coloring bars by executing department
         mm: number;
     }[];
 }
@@ -826,7 +827,8 @@ interface AllocationData {
 interface ProjectViewData {
     projectId: string;
     projectName: string;
-    client: string; // From Persistence/Logic
+    client: string; 
+    execDept: string; // Used for coloring rows
     assignedMembers: {
         name: string;
         rank: string;
@@ -837,6 +839,19 @@ interface ProjectViewData {
 }
 
 const DEPARTMENTS = ["DX 사업본부", "플랫폼 개발팀", "디자인팀", "AI 연구소", "금융사업 2팀", "공공사업 1팀", "CSG"];
+
+// Helper for colors: Returns background, text, border, ring classes for consistency
+const getDeptColorInfo = (dept: string) => {
+    switch(dept) {
+        case '플랫폼 개발팀': return { bg: 'bg-orange-500', text: 'text-orange-600', border: 'border-orange-200', ring: 'ring-orange-500', light: 'bg-orange-50' };
+        case 'DX 사업본부': return { bg: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-200', ring: 'ring-blue-500', light: 'bg-blue-50' };
+        case '디자인팀': return { bg: 'bg-pink-500', text: 'text-pink-600', border: 'border-pink-200', ring: 'ring-pink-500', light: 'bg-pink-50' };
+        case 'AI 연구소': return { bg: 'bg-indigo-500', text: 'text-indigo-600', border: 'border-indigo-200', ring: 'ring-indigo-500', light: 'bg-indigo-50' };
+        case '금융사업 2팀': return { bg: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-200', ring: 'ring-emerald-500', light: 'bg-emerald-50' };
+        case '공공사업 1팀': return { bg: 'bg-cyan-500', text: 'text-cyan-600', border: 'border-cyan-200', ring: 'ring-cyan-500', light: 'bg-cyan-50' };
+        default: return { bg: 'bg-slate-400', text: 'text-slate-500', border: 'border-slate-200', ring: 'ring-slate-400', light: 'bg-slate-50' };
+    }
+};
 
 export const MockupAllocation = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -872,20 +887,35 @@ export const MockupAllocation = () => {
                     // Assign to 1-2 projects
                     const proj1 = projects[index % projects.length];
                     const mm1 = 0.5 + (Math.random() > 0.5 ? 0.5 : 0);
-                    assignments.push({ projectId: proj1.code, projectName: proj1.name, mm: mm1 });
+                    assignments.push({ 
+                        projectId: proj1.code, 
+                        projectName: proj1.name, 
+                        projectDept: proj1.execDept || '플랫폼 개발팀', // Fallback to ensure color works
+                        mm: mm1 
+                    });
                     usedMM += mm1;
 
                     if (usedMM < 1.0 && Math.random() > 0.3) {
                         const proj2 = projects[(index + 1) % projects.length];
                         const mm2 = 1.0 - usedMM;
-                        assignments.push({ projectId: proj2.code, projectName: proj2.name, mm: parseFloat(mm2.toFixed(1)) });
+                        assignments.push({ 
+                            projectId: proj2.code, 
+                            projectName: proj2.name, 
+                            projectDept: proj2.execDept || '플랫폼 개발팀',
+                            mm: parseFloat(mm2.toFixed(1)) 
+                        });
                         usedMM += mm2;
                     }
                 } else {
                     // Juniors often 100% on one or idle
                     if (Math.random() > 0.2) {
                         const proj = projects[index % projects.length];
-                        assignments.push({ projectId: proj.code, projectName: proj.name, mm: 1.0 });
+                        assignments.push({ 
+                            projectId: proj.code, 
+                            projectName: proj.name, 
+                            projectDept: proj.execDept || '플랫폼 개발팀',
+                            mm: 1.0 
+                        });
                         usedMM = 1.0;
                     }
                 }
@@ -893,7 +923,12 @@ export const MockupAllocation = () => {
                 // Random overload for demo
                 if (Math.random() > 0.9) {
                      const proj = projects[(index + 2) % projects.length];
-                     assignments.push({ projectId: proj.code, projectName: proj.name, mm: 0.2 });
+                     assignments.push({ 
+                         projectId: proj.code, 
+                         projectName: proj.name, 
+                         projectDept: proj.execDept || '플랫폼 개발팀',
+                         mm: 0.2 
+                     });
                      usedMM += 0.2;
                 }
 
@@ -962,6 +997,7 @@ export const MockupAllocation = () => {
                 projectId: p.code,
                 projectName: p.name,
                 client: p.client,
+                execDept: p.execDept,
                 assignedMembers: [],
                 totalMM: 0
             });
@@ -1115,14 +1151,19 @@ export const MockupAllocation = () => {
                                     const totalUtilization = alloc.assignments.reduce((sum, a) => sum + a.mm, 0);
                                     const utilColor = getUtilizationColor(totalUtilization);
                                     const isOverloaded = totalUtilization > 1.0;
+                                    const deptColors = getDeptColorInfo(alloc.dept);
                                     
                                     return (
                                         <tr key={alloc.employeeId} className="hover:bg-slate-50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-800">{alloc.name} <span className="text-xs text-slate-400 font-normal ml-1">{alloc.rank}</span></div>
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold mt-1 inline-block ${alloc.type === '정규직' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                                                    {alloc.type}
-                                                </span>
+                                            <td className="px-6 py-4 flex items-center">
+                                                {/* Dept Identifier Marker */}
+                                                <div className={`w-1.5 h-10 rounded-full mr-3 ${deptColors.bg}`} title={alloc.dept}></div>
+                                                <div>
+                                                    <div className="font-bold text-slate-800">{alloc.name} <span className="text-xs text-slate-400 font-normal ml-1">{alloc.rank}</span></div>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold mt-1 inline-block ${alloc.type === '정규직' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+                                                        {alloc.type}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">{alloc.dept}</td>
                                             <td className="px-6 py-4 text-slate-600">
@@ -1144,22 +1185,25 @@ export const MockupAllocation = () => {
                                             <td className="px-6 py-4">
                                                 {alloc.assignments.length > 0 ? (
                                                     <div className="space-y-2">
-                                                        {alloc.assignments.map((assign, i) => (
-                                                            <div key={i} className="flex items-center text-xs">
-                                                                <div className="w-24 font-bold text-slate-500 text-right mr-3 font-mono">
-                                                                    {assign.mm.toFixed(1)} M/M
+                                                        {alloc.assignments.map((assign, i) => {
+                                                            const barColor = getDeptColorInfo(assign.projectDept).bg;
+                                                            return (
+                                                                <div key={i} className="flex items-center text-xs">
+                                                                    <div className="w-24 font-bold text-slate-500 text-right mr-3 font-mono">
+                                                                        {assign.mm.toFixed(1)} M/M
+                                                                    </div>
+                                                                    <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden relative">
+                                                                        <div 
+                                                                            className={`h-full rounded-full ${barColor}`}
+                                                                            style={{width: `${Math.min(assign.mm * 100, 100)}%`}}
+                                                                        ></div>
+                                                                    </div>
+                                                                    <div className="ml-3 font-medium text-slate-700 w-48 truncate flex items-center" title={assign.projectName}>
+                                                                        {assign.projectName}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden relative">
-                                                                    <div 
-                                                                        className={`h-full rounded-full ${isOverloaded ? 'bg-red-400' : 'bg-blue-500'}`}
-                                                                        style={{width: `${Math.min(assign.mm * 100, 100)}%`}}
-                                                                    ></div>
-                                                                </div>
-                                                                <div className="ml-3 font-medium text-slate-700 w-48 truncate flex items-center" title={assign.projectName}>
-                                                                    {assign.projectName}
-                                                                </div>
-                                                            </div>
-                                                        ))}
+                                                            );
+                                                        })}
                                                     </div>
                                                 ) : (
                                                     <div className="text-xs text-slate-400 italic">배정된 프로젝트 없음 (Idle)</div>
@@ -1188,11 +1232,16 @@ export const MockupAllocation = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 font-sans">
-                                {projectViewData.map((proj) => (
-                                    <tr key={proj.projectId} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-800">{proj.projectName}</div>
-                                            <div className="text-[10px] text-slate-400 font-mono">{proj.projectId}</div>
+                                {projectViewData.map((proj) => {
+                                    const deptColors = getDeptColorInfo(proj.execDept);
+                                    return (
+                                    <tr key={proj.projectId} className="hover:bg-slate-50 transition-colors group">
+                                        <td className="px-6 py-4 flex items-center">
+                                            <div className={`w-1 h-8 rounded-full mr-3 ${deptColors.bg}`}></div>
+                                            <div>
+                                                <div className="font-bold text-slate-800">{proj.projectName}</div>
+                                                <div className="text-[10px] text-slate-400 font-mono">{proj.projectId}</div>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-slate-600 text-xs font-bold">{proj.client}</td>
                                         <td className="px-6 py-4 text-center">
@@ -1204,14 +1253,14 @@ export const MockupAllocation = () => {
                                                 {proj.assignedMembers.map((mem, idx) => (
                                                     <div key={idx} className="flex items-center bg-white border border-gray-200 rounded-full px-3 py-1 shadow-sm">
                                                         <span className="font-bold text-xs text-slate-700 mr-1.5">{mem.name}</span>
-                                                        <span className="text-[10px] text-slate-400 border-l border-gray-200 pl-1.5">{mem.dept}</span>
-                                                        <span className="ml-2 text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 rounded">{(mem.mm * 100).toFixed(0)}%</span>
+                                                        <span className="text-[10px] text-slate-400 border-l border-gray-200 pl-1.5 mr-1.5">{mem.dept}</span>
+                                                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 rounded">{mem.mm.toFixed(1)} M/M</span>
                                                     </div>
                                                 ))}
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                )})}
                                 {projectViewData.length === 0 && (
                                     <tr><td colSpan={4} className="text-center py-20 text-gray-400">데이터가 없습니다.</td></tr>
                                 )}
