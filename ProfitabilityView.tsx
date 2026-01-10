@@ -33,6 +33,7 @@ interface ResourceRow {
     name: string;
     personId?: string; // Tracks if the resource is linked to a system employee
     grade: string;
+    rank: string;
     type: '정규직' | '프리랜서' | '외주';
     monthlyCost: number;
     startDate: string;
@@ -78,10 +79,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
 
         const handleClickOutside = (event: MouseEvent) => {
             if (searchPortalRef.current && !searchPortalRef.current.contains(event.target as Node)) {
-                // Delay closing slightly to allow click event on input to handle its logic if needed, 
-                // but direct close is usually fine if we don't block input clicks.
-                // However, clicking the input again will trigger its onClick which sets state.
-                // We just close it here.
                 setActiveSearchState(null);
             }
             if (memoPortalRef.current && !memoPortalRef.current.contains(event.target as Node)) {
@@ -95,7 +92,7 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
         };
 
         document.addEventListener("mousedown", handleClickOutside);
-        document.addEventListener("scroll", handleScroll, true); // Capture scroll in any container
+        document.addEventListener("scroll", handleScroll, true); 
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
             document.removeEventListener("scroll", handleScroll, true);
@@ -124,12 +121,12 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
 
     // 3. Real Execution (Resource Planning)
     const [resourceRows, setResourceRows] = useState<ResourceRow[]>([
-        { id: 1, role: "Project Manager", dept: "DX 사업본부", name: "김철수", personId: "EMP-2020-045", grade: "특급", type: "정규직", monthlyCost: 5500000, startDate: "2024-01-01", endDate: "2024-06-30", mm: 6, memo: [{ id: 1, content: "PMO 역할 포함", date: "2024-10-01", author: "김철수" }] },
-        { id: 2, role: "UX Leading", dept: "DX 사업본부", name: "박지민", personId: "EMP-2022-003", grade: "고급", type: "정규직", monthlyCost: 4500000, startDate: "2024-01-01", endDate: "2024-06-30", mm: 6, memo: [] },
-        { id: 3, role: "UX 설계", dept: "플랫폼 개발", name: "홍길동", personId: "EMP-2024-001", grade: "고급", type: "정규직", monthlyCost: 8000000, startDate: "2024-01-15", endDate: "2024-06-30", mm: 5.5, memo: [] },
-        { id: 4, role: "Design/PL", dept: "디자인팀", name: "전지현", personId: "EMP-2021-022", grade: "고급", type: "정규직", monthlyCost: 4500000, startDate: "2024-01-01", endDate: "2024-06-30", mm: 6, memo: [] },
-        { id: 5, role: "Design", dept: "외주", name: "", grade: "중급", type: "외주", monthlyCost: 0, startDate: "", endDate: "", mm: 0, memo: [] }, 
-        { id: 6, role: "Programming", dept: "DX 사업본부", name: "김철수", personId: "EMP-2020-045", grade: "고급", type: "정규직", monthlyCost: 5500000, startDate: "2024-01-01", endDate: "2024-06-30", mm: 6, memo: [] },
+        { id: 1, role: "Project Manager", dept: "DX 사업본부", name: "김철수", personId: "EMP-2020-045", grade: "특급", rank: "수석", type: "정규직", monthlyCost: 5500000, startDate: "2024-01-01", endDate: "2024-06-30", mm: 6, memo: [{ id: 1, content: "PMO 역할 포함", date: "2024-10-01", author: "김철수" }] },
+        { id: 2, role: "UX Leading", dept: "DX 사업본부", name: "박지민", personId: "EMP-2022-003", grade: "고급", rank: "선임", type: "정규직", monthlyCost: 4500000, startDate: "2024-01-01", endDate: "2024-06-30", mm: 6, memo: [] },
+        { id: 3, role: "UX 설계", dept: "플랫폼 개발팀", name: "홍길동", personId: "EMP-2024-001", grade: "고급", rank: "사원", type: "정규직", monthlyCost: 8000000, startDate: "2024-01-15", endDate: "2024-06-30", mm: 5.5, memo: [] },
+        { id: 4, role: "Design/PL", dept: "디자인팀", name: "전지현", personId: "EMP-2021-022", grade: "고급", rank: "책임", type: "정규직", monthlyCost: 4500000, startDate: "2024-01-01", endDate: "2024-06-30", mm: 6, memo: [] },
+        { id: 5, role: "Design", dept: "외주", name: "", grade: "중급", rank: "-", type: "외주", monthlyCost: 0, startDate: "", endDate: "", mm: 0, memo: [] }, 
+        { id: 6, role: "Programming", dept: "DX 사업본부", name: "김철수", personId: "EMP-2020-045", grade: "고급", rank: "수석", type: "정규직", monthlyCost: 5500000, startDate: "2024-01-01", endDate: "2024-06-30", mm: 6, memo: [] },
     ]);
 
     // History
@@ -160,10 +157,8 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
         const startDate = new Date(start);
         const endDate = new Date(end);
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 0;
-        
-        // Approximate MM based on 30 days
         const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
         return Number((diffDays / 30).toFixed(1));
     };
 
@@ -174,7 +169,7 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
         const COMMON_COST = 850000;
         let cost = 0;
         if (person.type === "정규직") {
-            cost = (monthlySalary * 1.204 + COMMON_COST) * 1.05; // Insurance + Retirement + Common + Overhead
+            cost = (monthlySalary * 1.204 + COMMON_COST) * 1.05;
         } else {
             cost = (monthlySalary * 1.05 + COMMON_COST) * 1.05;
         }
@@ -217,20 +212,18 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
             id: Date.now(),
             content: historyInput,
             date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            user: "김철수" // Mock user
+            user: "김철수"
         };
         setHistoryList([newItem, ...historyList]);
         setHistoryInput("");
     };
 
-    // --- Handlers: Resource Planning (DnD, Search, Auto-fill) ---
-    const addResourceRow = () => setResourceRows([...resourceRows, { id: Date.now(), role: "New Role", dept: "부서선택", name: "", grade: "중급", type: "정규직", monthlyCost: 0, startDate: "", endDate: "", mm: 0, memo: [] }]);
+    // --- Handlers: Resource Planning ---
+    const addResourceRow = () => setResourceRows([...resourceRows, { id: Date.now(), role: "New Role", dept: "부서선택", name: "", grade: "중급", rank: "-", type: "정규직", monthlyCost: 0, startDate: "", endDate: "", mm: 0, memo: [] }]);
     const updateResourceRow = (id: number, field: keyof ResourceRow, value: any) => {
         setResourceRows(prev => prev.map(item => {
             if (item.id !== id) return item;
             const updated = { ...item, [field]: value };
-            
-            // Auto-calculate M/M if dates change
             if (field === 'startDate' || field === 'endDate') {
                 const mm = calculateMM(field === 'startDate' ? value : item.startDate, field === 'endDate' ? value : item.endDate);
                 updated.mm = mm;
@@ -251,7 +244,8 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
             name: emp.name,
             personId: emp.id,
             dept: emp.dept,
-            grade: emp.rank || emp.grade, 
+            grade: emp.techGrade || "중급",
+            rank: emp.rank || "-", 
             type: emp.type as any,
             monthlyCost: monthlyCost
         } : item));
@@ -301,7 +295,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
         setResourceRows(prev => prev.map(r => r.id === rowId ? { ...r, memo: r.memo.filter(m => m.id !== memoId) } : r));
     };
 
-    // Filtered Employees for Search
     const getFilteredEmployees = (term: string) => {
         if (!term) return employees;
         return employees.filter(e => e.name.includes(term) || e.dept.includes(term));
@@ -345,7 +338,7 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
             className="fixed z-[9999] bg-white border border-gray-200 shadow-xl rounded-xl flex flex-col overflow-hidden font-sans animate-fadeIn"
             style={{
                 top: activeMemoState.rect.top,
-                left: activeMemoState.rect.left - 330, // Show to the left of the button
+                left: activeMemoState.rect.left - 330,
                 width: 320
             }}
         >
@@ -395,7 +388,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                     </button>
                 </div>
             </div>
-            {/* Arrow on the right side pointing to button */}
             <div className="absolute top-4 -right-1.5 w-3 h-3 bg-white border-t border-r border-gray-200 rotate-45 z-10"></div>
         </div>,
         document.body
@@ -479,7 +471,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                         </div>
                     </div>
                     <div className="p-5 grid grid-cols-2 gap-8">
-                        {/* Outsourcing List */}
                         <div>
                             <div className="flex justify-between items-center mb-2">
                                 <label className="text-xs font-bold text-slate-600">외주 용역비 예산 (Outsourcing)</label>
@@ -497,7 +488,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                                 ))}
                             </div>
                         </div>
-                        {/* Expense List */}
                         <div>
                             <div className="flex justify-between items-center mb-2">
                                 <label className="text-xs font-bold text-slate-600">기타 경비 (S/W, Rent, etc.)</label>
@@ -530,7 +520,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                             <span className="text-xs font-bold text-slate-800">총 예상 매출: ₩ {formatNumber(totalEstimateRevenue)}</span>
                         </div>
                     </div>
-                    {/* Added overflow-x-auto for responsiveness */}
                     <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left whitespace-nowrap">
                         <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
@@ -571,7 +560,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                     </div>
                     <button onClick={addEstimateRow} className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-t border-gray-100 flex items-center justify-center">+ 계획 추가 (Row)</button>
                     
-                    {/* History Section */}
                     <div className="p-4 bg-slate-50 border-t border-gray-200">
                         <div className="flex items-center space-x-2 mb-2">
                              <History size={14} className="text-slate-400"/>
@@ -611,7 +599,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                             <span className="flex items-center"><div className="w-2 h-2 rounded-full bg-gray-500 mr-1.5"></div>외주(용역)</span>
                         </div>
                     </div>
-                    {/* Changed to overflow-x-auto to handle wide tables on small screens */}
                     <div className="overflow-x-auto border-t border-gray-100 min-h-[300px]">
                         <table className="w-full text-xs text-left whitespace-nowrap">
                             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
@@ -620,6 +607,7 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                                     <th className="px-4 py-3">구분 (Role)</th>
                                     <th className="px-4 py-3">부서</th>
                                     <th className="px-4 py-3">투입 인력 (Select)</th>
+                                    <th className="px-4 py-3">직급</th>
                                     <th className="px-4 py-3">등급</th>
                                     <th className="px-4 py-3">투입 형태</th>
                                     <th className="px-4 py-3 text-right">월 단가 (Cost)</th>
@@ -645,7 +633,6 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                                         <td className="px-4 py-3"><input className="w-24 bg-transparent outline-none font-medium text-slate-700" value={row.role} onChange={(e) => updateResourceRow(row.id, 'role', e.target.value)} /></td>
                                         <td className="px-4 py-3 text-slate-500">{row.dept}</td>
                                         
-                                        {/* Smart Employee Search Input */}
                                         <td className="px-4 py-3 relative">
                                             <input 
                                                 className="w-20 bg-transparent border-b border-transparent focus:border-orange-500 outline-none font-bold text-slate-800 placeholder-slate-400"
@@ -669,10 +656,19 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                                                     setActiveSearchState({ id: row.id, rect });
                                                 }}
                                             />
-                                            {/* Dropdown removed from here, moved to Portal */}
                                         </td>
                                         
+                                        {/* Swapped: Rank comes before Grade */}
+                                        <td className="px-4 py-3">
+                                            <input 
+                                                disabled 
+                                                className="w-16 bg-transparent text-slate-400 font-bold outline-none cursor-not-allowed" 
+                                                value={row.rank} 
+                                                readOnly 
+                                            />
+                                        </td>
                                         <td className="px-4 py-3 text-slate-500">{row.grade}</td>
+
                                         <td className="px-4 py-3">
                                             <select 
                                                 className={`bg-transparent outline-none font-bold ${row.type === '정규직' ? 'text-blue-600' : row.type === '프리랜서' ? 'text-purple-600' : 'text-slate-500'} ${isSystemEmp ? 'opacity-70 cursor-not-allowed' : ''}`}
@@ -709,14 +705,11 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                                             </div>
                                         </td>
                                         
-                                        {/* Memo Actions */}
                                         <td className="px-4 py-3 text-center relative">
                                             <button onClick={(e) => toggleMemo(e, row.id)} className="transition-transform active:scale-95 relative">
                                                 <MessageSquare size={16} className={`mx-auto ${row.memo.length > 0 ? 'text-orange-500 fill-orange-50' : 'text-gray-300 hover:text-orange-400'}`} />
                                                 {row.memo.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
                                             </button>
-                                            
-                                            {/* Memo Popover moved to Portal */}
                                         </td>
                                         
                                         <td className="px-4 py-3 text-center"><button onClick={() => removeResourceRow(row.id)}><Trash2 size={14} className="text-gray-300 hover:text-red-500"/></button></td>
@@ -725,7 +718,7 @@ export const ProfitabilityView = ({ onBack }: { onBack: () => void }) => {
                             </tbody>
                             <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-slate-600">
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-3 text-center">합계</td>
+                                    <td colSpan={9} className="px-4 py-3 text-center">합계</td>
                                     <td className="px-4 py-3 text-center text-orange-600">{totalActualMM.toFixed(1)}</td>
                                     <td className="px-4 py-3 text-right font-mono text-orange-600">₩ {formatNumber(totalActualLaborCost)}</td>
                                     <td colSpan={2}></td>

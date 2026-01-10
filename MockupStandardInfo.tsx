@@ -116,7 +116,8 @@ export const MockupStandardInfo = () => {
     if (!person || !person.salaries) return 0;
     
     const year = new Date().getFullYear().toString();
-    const annualSal = person.salaries[year] || Object.values(person.salaries)[0] || 0;
+    // Fix: Cast Object.values to number[] to handle cases where it might be inferred as unknown[]
+    const annualSal = person.salaries[year] || (Object.values(person.salaries) as number[])[0] || 0;
     const monthlySalary = annualSal / 12;
     
     // Find matching standard
@@ -263,6 +264,7 @@ export const MockupStandardInfo = () => {
   const getCumulativeSum = (dept: string): number => {
       const months = deptMonthlyItems[dept] || {};
       let total = 0;
+      // Fix: Cast Object.values to MonthlyItem[][] to ensure it's not unknown[]
       (Object.values(months) as MonthlyItem[][]).forEach((items: MonthlyItem[]) => {
           total += items.reduce((sum: number, item: MonthlyItem) => sum + item.amount, 0);
       });
@@ -449,7 +451,8 @@ export const MockupStandardInfo = () => {
                                   <span className="text-xs text-slate-400 mr-2">₩</span>
                                   <input 
                                       className="text-right font-black text-slate-800 bg-transparent outline-none border-b border-slate-300 focus:border-orange-500 w-40" 
-                                      value={formatNumber(companySettings.totalAnnualRevenueTarget)}
+                                      // Fix: Cast potential any/unknown from StorageService state to number
+                                      value={formatNumber(companySettings.totalAnnualRevenueTarget as number)}
                                       onChange={(e) => {
                                           const val = Number(e.target.value.replace(/,/g, ''));
                                           if(!isNaN(val)) setCompanySettings({...companySettings, totalAnnualRevenueTarget: val});
@@ -499,7 +502,8 @@ export const MockupStandardInfo = () => {
                                   <span className="text-xs text-slate-400 mr-2">₩</span>
                                   <input 
                                       className="text-right font-black text-slate-400 bg-transparent outline-none border-b border-slate-300 focus:border-orange-500 w-40" 
-                                      value={formatNumber(companySettings.totalCommonCost)}
+                                      // Fix: Cast potential any/unknown from StorageService state to number
+                                      value={formatNumber(companySettings.totalCommonCost as number)}
                                       onChange={(e) => {
                                           const val = Number(e.target.value.replace(/,/g, ''));
                                           if(!isNaN(val)) setCompanySettings({...companySettings, totalCommonCost: val});
@@ -518,7 +522,8 @@ export const MockupStandardInfo = () => {
                           <PieChart size={16} className="mr-2 text-orange-500" /> 부서별 목표 할당 및 비교 (Target Allocation vs Dept Plan)
                       </h3>
                       <div className="flex items-center space-x-4 text-xs font-bold">
-                          <span className="text-slate-500">할당 합계: <span className="text-slate-800">₩ {formatNumber(Object.values(companyAllocations).reduce((a: number, b: number) => a + b, 0))}</span></span>
+                          {/* Fix: Explicitly cast Object.values to number[] to resolve potential unknown type errors */}
+                          <span className="text-slate-500">할당 합계: <span className="text-slate-800">₩ {formatNumber((Object.values(companyAllocations) as number[]).reduce((a: number, b: number) => a + b, 0))}</span></span>
                           <span className="text-slate-500">계획 합계: <span className="text-slate-800">₩ {formatNumber(departments.reduce((acc: number, d: string) => acc + getAnnualGoal(d), 0))}</span></span>
                       </div>
                   </div>
@@ -602,7 +607,8 @@ export const MockupStandardInfo = () => {
                     {isMonthLocked && <Lock size={14} className="text-slate-300" />}
                     </div>
                     <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">
-                    ₩ {formatNumber(totalTargetRevenue)}
+                    {/* Fix: Explicitly cast totalTargetRevenue to number */}
+                    ₩ {formatNumber(totalTargetRevenue as number)}
                     </div>
                 </div>
 
@@ -636,7 +642,8 @@ export const MockupStandardInfo = () => {
                     <input 
                         type="text" 
                         className="text-2xl font-black text-slate-900 border-b-2 border-slate-200 focus:border-orange-500 outline-none w-full bg-transparent font-mono"
-                        value={formatNumber(companySettings.totalCommonCost)}
+                        // Fix: Explicitly cast companySettings.totalCommonCost to number
+                        value={formatNumber(companySettings.totalCommonCost as number)}
                         onChange={(e) => {
                         const val = Number(e.target.value.replace(/,/g, ''));
                         if(!isNaN(val)) setCompanySettings({...companySettings, totalCommonCost: val});
@@ -786,7 +793,8 @@ export const MockupStandardInfo = () => {
                         <div className={`text-sm font-bold mb-0.5 truncate ${selectedDept === dept ? 'text-orange-700' : 'text-gray-700'}`}>{dept}</div>
                         <div className="flex items-center space-x-1.5">
                             <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
-                                ₩ {formatNumber(cost)}
+                                {/* Fix: Explicitly cast cost to number to ensure it's not unknown */}
+                                ₩ {formatNumber(cost as number)}
                             </span>
                         </div>
                      </div>
@@ -815,7 +823,8 @@ export const MockupStandardInfo = () => {
                               <Users size={18} className="mr-2 text-slate-500"/> {selectedDept} 인원 현황
                           </h3>
                           <p className="text-xs text-slate-500 mt-1 ml-6">
-                              월 인건비 합계: <span className="font-bold text-orange-600">₩ {formatNumber(selectedDeptTotalCost)}</span> (공통비 비율 {costStandards[0].commonCostRate}% 적용)
+                              {/* Fix: Explicitly cast selectedDeptTotalCost to number */}
+                              월 인건비 합계: <span className="font-bold text-orange-600">₩ {formatNumber(selectedDeptTotalCost as number)}</span> (공통비 비율 {costStandards[0].commonCostRate}% 적용)
                           </p>
                       </div>
                     </div>
@@ -837,7 +846,8 @@ export const MockupStandardInfo = () => {
                                   <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${emp.type === '정규직' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>{emp.type}</span>
                               </td>
                               <td className="px-6 py-3 text-center"><span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{emp.rank}</span></td>
-                              <td className="px-6 py-3 text-right font-mono text-slate-600">₩ {formatNumber(getCalculatedMonthlyCost(emp))}</td>
+                              {/* Fix: Explicitly cast result of getCalculatedMonthlyCost to number */}
+                              <td className="px-6 py-3 text-right font-mono text-slate-600">₩ {formatNumber(getCalculatedMonthlyCost(emp) as number)}</td>
                               <td className="px-6 py-3 text-right">
                                 <button onClick={() => setDeptHeads(prev => ({...prev, [selectedDept]: emp.id}))} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${deptHeads[selectedDept] === emp.id ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
                                   <Crown size={12} className="mr-1.5"/> {deptHeads[selectedDept] === emp.id ? '지정됨' : '부서장 지정'}
@@ -868,13 +878,15 @@ export const MockupStandardInfo = () => {
                           <div key={source.id} className="flex items-center space-x-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
                              <input className="flex-1 bg-white border border-gray-200 rounded px-3 py-2 text-sm outline-none" placeholder="매출처 입력" value={source.client} onChange={(e) => updateSalesSource(selectedDept, source.id, 'client', e.target.value)} />
                              <div className="relative w-48">
-                               <input className="w-full text-right bg-white border border-gray-200 rounded pr-3 py-2 text-sm font-mono outline-none" value={formatNumber(source.amount)} onChange={(e) => { const val = Number(e.target.value.replace(/,/g, '')); if(!isNaN(val)) updateSalesSource(selectedDept, source.id, 'amount', val); }} />
+                               {/* Fix: Explicitly cast source.amount to number */}
+                               <input className="w-full text-right bg-white border border-gray-200 rounded pr-3 py-2 text-sm font-mono outline-none" value={formatNumber(source.amount as number)} onChange={(e) => { const val = Number(e.target.value.replace(/,/g, '')); if(!isNaN(val)) updateSalesSource(selectedDept, source.id, 'amount', val); }} />
                              </div>
                              <button onClick={() => deleteSalesSource(selectedDept, source.id)} className="text-gray-300 hover:text-red-500"><X size={16}/></button>
                           </div>
                         ))}
                       </div>
-                      <div className="mt-4 pt-4 border-t text-right"><span className="text-xl font-black font-mono">₩ {formatNumber(getAnnualGoal(selectedDept))}</span></div>
+                      {/* Fix: Explicitly cast getAnnualGoal result to number */}
+                      <div className="mt-4 pt-4 border-t text-right"><span className="text-xl font-black font-mono">₩ {formatNumber(getAnnualGoal(selectedDept) as number)}</span></div>
                     </div>
                   </div>
                 </>
